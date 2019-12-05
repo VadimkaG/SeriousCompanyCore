@@ -1,0 +1,20 @@
+{
+	"sitePathInUrl":true,
+	"database":{
+		"server":"localhost",
+		"basename":"core",
+		"user":"",
+		"password":""
+	},
+	"tablenames":{
+		"SiteConfig":"SiteConfig",
+		
+		"accounts":"accounts",
+		"PermissionGroups":"PermissionGroups",
+		"Permissions":"permissions"
+	},
+	"locales":[
+		"ru",
+		"en"
+	]
+}

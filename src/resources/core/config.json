@@ -1,0 +1,8 @@
+{
+	"version":"0.01",
+	"block_prefix":"<!--SYS_BLOCK%",
+	"block_suffix":"%-->",
+	"block_prefix_closed":"<!--/SYS_BLOCK%",
+	"value_prefix":"<!--SYS_VAL%",
+	"value_suffix":"%-->"
+}

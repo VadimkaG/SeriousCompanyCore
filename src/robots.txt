@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /?logout
+
+Sitemap: http://core.seriouscompany.ru/sitemap/?xml

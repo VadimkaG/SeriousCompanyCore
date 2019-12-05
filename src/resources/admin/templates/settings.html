@@ -1,0 +1,19 @@
+<div class="block">
+	<div class="block-head">Настройки</div>
+	<div class="block-body">
+		<div>
+			<form method="POST" action="/admin/settings/">
+				<input type="hidden" name="action" value="changeSiteSettings">
+				<table>
+					<!--SYS_BLOCK%string%-->
+					<tr>
+						<td><!--SYS_VAL%title%--></td>
+						<td><input type="<!--SYS_VAL%type%-->" name="<!--SYS_VAL%alias%-->" value="<!--SYS_VAL%value%-->" <!--SYS_VAL%atr%-->></td>
+					</tr>
+					<!--/SYS_BLOCK%string%-->
+				</table>
+				<input type="submit" value="Сохранить насройки" class="btn_green"><br>
+			</form>
+		</div>
+	</div>
+</div>
