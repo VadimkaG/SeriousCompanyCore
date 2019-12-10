@@ -1,5 +1,5 @@
 <?PHP
-// version 1.0
+// version 1.1
 class database {
 	
 	// Инициализация
@@ -223,7 +223,7 @@ class database {
 	 * @param $table - Таблица в которой будут обновлены данные
 	 * @param $values - Данные, которые будут обновлены - array()
 	 */
-	public function update($table,$values) {
+	public function update($table,$values,$row=false) {
 		if ($this->WhereNode) $where = ' WHERE '.$this->WhereNode->getSQL();
 		else $where = '';
 		if (is_array($table)) $table = implode(',',$table);
@@ -232,7 +232,10 @@ class database {
 		if (is_array($values)) {
 			foreach($values as $key=>$value) {
 				if ($str_values != '') $str_values .= ',';
-				$str_values .= $key.' = '.databaseWhereNode::getField($value);
+				if ($row)
+					$str_values .= $key.' = '.$value;
+				else
+					$str_values .= $key.' = '.databaseWhereNode::getField($value);
 			}
 		} else return false;
 		return $this->query("UPDATE ".$table." SET ".$str_values.$where);
