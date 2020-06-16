@@ -1,97 +1,113 @@
-<?PHP
+<?php
 namespace modules\accounts;
 if (!class_exists('\modules\accounts\index')) die("Ошибка: Используйте \modules\accounts\index::getAccountUtils()");
 class AccountUtils {
 	private $db;
-	private $tablenames;
-	public function __construct(&$database,&$tablenames){
+	public function __construct(&$database){
 		$this->db = $database;
-		$this->tablenames = $tablenames;
 	}
+	/**
+	 * Список аккаунтов
+	 * @return int
+	 */
 	function countAccounts() {
-		$result = $this->db->select($this->tablenames['accounts'],array('c'=>'Count(*)'));
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			$result->close();
-			$this->db->clear();
-			if ($arr)
-				return (int)$arr['c'];
-			else
-			    return 0;
-		} else throw new AccountQueryFailedException($this->db->getError());
+		$result = $this->db->select($this->db->getTableAlias('accounts'),array('c'=>'Count(*)'));
+		$this->db->clear();
+		if (count($result) > 0)
+			return (int)$result[0]['c'];
+		else
+			return 0;
 	}
 	/**
 	 * Список аккаунтов
 	 * @param $page - int - страница (необязательный параметр)
 	 * @param $perPage - int - Количество аккаунтов на странице (необязательный параметр)
-	 * @return array [ int ] = { array{ login, group, email, password, id } ... }
+	 * @return array [ int ] = { array{ login, group, password, id } ... }
 	 * @throw \InvalidArgumentException Если параметры не верного типа
-	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 */
-	function listAccounts($page = null,$perPage = null) {
-		if ($page != null && $perPage != null) {
-			if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
-			if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
-			$this->db->setPage($page,$perPage);
+	function listAccounts($page = 1,$perPage = 20) {
+		if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
+		if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
+
+		$fields = array(
+				"id"          => "a.id",
+				"login"       => "a.login",
+				"password"    => "a.password",
+				"registered" => "a.registered",
+				"lastlogin" => "a.lastlogin",
+				"ugroup"      => "g.id",
+				"ugroup_name" => "g.name"
+			);
+
+		$acc_fields = $this->listCustomFields();
+		foreach ($acc_fields as $field) {
+			$fields["field_".$field["alias"]] = "field_".$field["alias"];
 		}
-		$result = $this->db->select($this->tablenames['accounts']);
-		if ($result != false) {
-			$accs = array();
-			while ($arr = $result->fetch_array(MYSQLI_ASSOC)) {
-				//$accs[] = new Account($arr['login'],$arr['ugroup'],$arr['email'],$arr['password'],$arr['id']);
-				$accs[] = array(
-					'login'=>$arr['login'],
-					'group'=>(int)$arr['ugroup'],
-					'email'=>$arr['email'],
-					'password'=>$arr['password'],
-					'id'=>(int)$arr['id']
-				);
-			}
-			$result->close();
-			$this->db->clear();
-			return $accs;
-		} else throw new AccountQueryFailedException($this->db->getError());
+
+		$this->db->setPage($page,$perPage);
+		$cond = $this->db->setCondition();
+		$cond->add("a.ugroup","=","g.id",true);
+		$accs = $this->db->select(
+			array(
+				"a" => $this->db->getTableAlias('accounts'),
+				"g" => $this->db->getTableAlias('PermissionGroups')
+			),
+			$fields
+		);
+		$this->db->clear();
+		foreach ($accs as &$acc) {
+			$acc["id"] = (int)$acc["id"];
+			$acc["ugroup"] = (int)$acc["ugroup"];
+			$acc["group"] = &$acc["ugroup"];
+			$acc["group_name"] = &$acc["ugroup_name"];
+		}
+		return $accs;
 	}
 	/**
 	 * Получить аккаунт
 	 * @param $id - int - Идентификатор пользователя
-	 * @return array{ login, group, email, password, id } 
+	 * @return array{ login, group, password, id } 
 	 * @throw \InvalidArgumentException Если параметры не верного типа
-	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 * @throw \modules\accounts\AccountNotFoundException Если пользователь по заданным параметрам не найден
 	 */
 	function getAccount($id) {
 		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
 		$cond = $this->db->setCondition('and');
-		$cond->add('id','=',$id);
-		$result = $this->db->select($this->tablenames['accounts']);
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) throw new AccountNotFoundException('Пользователь с id '.$id.' не найден.');
-			//$acc = new Account($arr['login'],$arr['ugroup'],$arr['email'],$arr['password'],$arr['id']);
-			$acc = array(
-				'login'=>$arr['login'],
-				'group'=>$arr['ugroup'],
-				'email'=>$arr['email'],
-				'password'=>$arr['password'],
-				'id'=>(int)$arr['id']
-			);
-			unset($arr);
-			$result->close();
-			$this->db->clear();
-			return $acc;
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		$cond->add('a.id','=',$id);
+		$this->db->setPage(1,1);
+		$cond->add("a.ugroup","=","g.id",true);
+		$result = $this->db->select(
+			array(
+				"a" => $this->db->getTableAlias('accounts'),
+				"g" => $this->db->getTableAlias('PermissionGroups')
+			),
+			array(
+				"id"          => "a.id",
+				"login"       => "a.login",
+				"password"    => "a.password",
+				"ugroup"      => "g.id",
+				"ugroup_name" => "g.name"
+			)
+		);
+		$this->db->clear();
+
+		if (count($result) < 1) throw new AccountNotFoundException('Пользователь с id '.$id.' не найден.');
+		$acc = array(
+			'login'     => $result[0]['login'],
+			'group'     => (int)$result[0]['ugroup'],
+			'group_name'=> $result[0]['ugroup_name'],
+			'password'  => $result[0]['password'],
+			'id'        => (int)$result[0]['id']
+		);
+		unset($result);
+		return $acc;
 	}
 	/**
 	 * Получить аккаунт используя логин и пароль
 	 * @param $login - string - Логин пользователя
 	 * @param $password - string - Пароль пользователя (необязательный параметр)
-	 * @return array{ login, group, email, password, id } 
+	 * @return array{ login, group, password, id } 
 	 * @throw \InvalidArgumentException Если параметры не верного типа
-	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 * @throw \modules\accounts\AccountNotFoundException Если пользователь по заданным параметрам не найден
 	 */
 	function getAccountByLogin($login,$password = null) {
@@ -99,128 +115,113 @@ class AccountUtils {
 		if ($password!= null && !is_string($login)) throw new \InvalidArgumentException('$password must be string or null');
 		$cond = $this->db->setCondition('and');
 		
-		$cond->add('login','=',$login);
+		$cond->add('a.login','=',$login);
+		if ($password != null)
+			$cond->add('a.password','=',index::cryptString($password));
+		$this->db->setPage(1,1);
+		$cond->add("a.ugroup","=","g.id",true);
+		$result = $this->db->select(
+			array(
+				"a" => $this->db->getTableAlias('accounts'),
+				"g" => $this->db->getTableAlias('PermissionGroups')
+			),
+			array(
+				"id"          => "a.id",
+				"login"       => "a.login",
+				"password"    => "a.password",
+				"ugroup"      => "g.id",
+				"ugroup_name" => "g.name"
+			)
+		);
+		$this->db->clear();
 		
-		if ($password != null) {
-			$cond->add('password','=',index::cryptString($password));
-		}
+		if (count($result) < 1) throw new AccountNotFoundException('Неверный логин или пароль.');
 		
-		$result = $this->db->select($this->tablenames['accounts']);
-		
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) {
-				$this->db->clear();
-				throw new AccountNotFoundException('Неверный логин или пароль.');
-			}
-			//$acc = new Account($arr['login'],$arr['ugroup'],$arr['email'],$arr['password'],$arr['id']);
-			$acc = array(
-				'login'=>$arr['login'],
-				'group'=>$arr['ugroup'],
-				'email'=>$arr['email'],
-				'password'=>$arr['password'],
-				'id'=>(int)$arr['id']
-			);
-			unset($arr);
-			$result->close();
-			$this->db->clear();
-			return $acc;
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		$acc = array(
+			'login'     => $result[0]['login'],
+			'group'     => (int)$result[0]['ugroup'],
+			'group_name'=> $result[0]['ugroup_name'],
+			'password'  => $result[0]['password'],
+			'id'        => (int)$result[0]['id']
+		);
+		unset($result);
+		return $acc;
 	}
 	/**
 	 * Существует ли аккаунт
 	 * @param $id - int - Идентификатор пользователя
 	 * @return boolean
 	 * @throw \InvalidArgumentException Если параметры не верного типа
-	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе происхзошла ошибка
 	 */
 	function existsAccount($id) {
 		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
-		$result = $this->db->select($this->tablenames['accounts']);
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) {
-				$result->close();
-				$this->db->clear();
-				return false;
-			}
-			$result->close();
-			$this->db->clear();
-			return true;
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		$this->db->setPage(1,1);
+		$result = $this->db->select(
+			$this->db->getTableAlias('accounts'),
+			array(
+				"cout" => "Count(*)"
+			)
+		);
+		$this->db->clear();
+		
+		if (isset($result[0]["cout"]) && ((int)$result[0]["cout"]) > 0) return true;
+		return false;
 	}
 	/**
 	 * Существует ли аккаунт
 	 * @param $login - string - Логин пользователя
 	 * @return boolean
 	 * @throw \InvalidArgumentException Если параметры не верного типа
-	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе происхзошла ошибка
 	 */
 	function existsAccountByLogin($login) {
 		if (!is_string($login)) throw new \InvalidArgumentException('$login must be string');
 		$cond = $this->db->setCondition('and');
 		$cond->add('login','=',$login);
-		$result = $this->db->select($this->tablenames['accounts']);
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) {
-				$result->close();
-				$this->db->clear();
-				return false;
-			}
-			$result->close();
-			$this->db->clear();
-			return true;
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		$this->db->setPage(1,1);
+		$result = $this->db->select(
+			$this->db->getTableAlias('accounts'),
+			array(
+				"cout" => "Count(*)"
+			)
+		);
+		$this->db->clear();
+		
+		if (isset($result[0]["cout"]) && ((int)$result[0]["cout"]) > 0) return true;
+		return false;
 	}
 	/**
 	 * Добавить аккаунт
 	 * @param $login - string - Логин
 	 * @param $password - string - Пароль
-	 * @param $email - string - Электронная почта
 	 * @throw \InvalidArgumentException Если параметры не верного типа
-	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 */
-	function addAccount($login,$password,$email = '') {
-		//if (!($acc instanceof Account)) throw new \InvalidArgumentException('$acc must be \\modules\\accounts\\Account');
+	function addAccount($login,$password,$group = 2,$fields = array()) {
 		if (!is_string($login)) throw new \InvalidArgumentException('$login must be string');
 		if (!is_string($password)) throw new \InvalidArgumentException('$password must be string');
-		if (!is_string($email)) throw new \InvalidArgumentException('$email must be string');
+		if (!is_int($group)) throw new \InvalidArgumentException('$group must be int');
+		if ($group < 1) throw new \InvalidArgumentException('$group must be > 0');
+		if (!is_array($fields)) throw new \InvalidArgumentException('$fields must be array');
 		if ($this->existsAccountByLogin($login)) throw new AccountExistsException('Пользователь с данным именем уже существует.');
-		$result = $this->db->insert($this->tablenames['accounts'],
-			array(
-				"'".$login."'",
-				"'".index::cryptString($password)."'",
-				"'".$email."'",
-				2
-			),
-			array(
-				'login',
-				'password',
-				'email',
-				'ugroup'
-			)
+		foreach ($fields as &$field) {
+			$field = \databaseWhereNode::getField($field);
+		}
+		$fields["login"]      = '"'.$login.'"';
+		$fields["password"]   = '"'.index::cryptString($password).'"';
+		$fields["ugroup"]     = $group;
+		$fields["registered"] = "NOW()";
+		$result = $this->db->insert(
+			$this->db->getTableAlias('accounts'),
+			$fields,
+			true
 		);
 		$this->db->clear();
-		if ($result != false)
-			throw new AccountQueryFailedException($this->db->getError());
 	}
 	/**
 	 * Удалить аккаунт
 	 * @param $id - int - Идентификатор аккаунта
 	 * @throw \InvalidArgumentException Если параметры не верного типа
-	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 */
 	function delAccount($id) {
 		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
@@ -228,143 +229,204 @@ class AccountUtils {
 		$acc = $this->getAccount($id);
 		
 		if ($acc['group'] == 1) {
-		    $cond = $this->db->setCondition('and');
+			$cond = $this->db->setCondition('and');
 			$cond->add('ugroup','=',1);
-			$result = $this->db->select($this->tablenames['accounts'], array('c'=>"Count(*)"));
-			if ($result != false) {
-				$arr = $result->fetch_array(MYSQLI_ASSOC);
-				if ($arr != null) {
-					$result->close();
-					$this->db->clear();
-					if ($arr['c'] <= 1) {
-						throw new NotEnoughAdminsException('Администратор с id '.$id.' единственный администратор. Удаление заблокировано.');
-					}
-				} else {
-					$result->close();
-					$this->db->clear();
-				}
-			} else {
-				$this->db->clear();
-				throw new AccountQueryFailedException($this->db->getError());
-			}
+			$this->db->setPage(1,2);
+			$result = $this->db->select($this->db->getTableAlias('accounts'), array('c'=>"Count(*)"));
 			$this->db->clear();
+			if (count($result) > 0 && $result[0]['c'] <= 1)
+				throw new NotEnoughAdminsException('Администратор с id '.$id.' единственный администратор. Удаление заблокировано.');
 		}
 		
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
-		$result = $this->db->delete($this->tablenames['accounts']);
+		$this->db->delete($this->db->getTableAlias('accounts'));
 		$this->db->clear();
+
 		$cond = $this->db->setCondition('and');
 		$cond->add('parent','=',$id);
 		$cond->add('type','=',1);
-		$result = $this->db->delete($this->tablenames['Permissions']);
+		$this->db->delete($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
-		if ($result != false)
-			throw new AccountQueryFailedException($this->db->getError());
 	}
 	/**
 	 * Изменить данные аккаунта
 	 * @param $id - int - Идентификатор аккаунта
 	 * @param $newlogin - string - Новый логин аккаунта
 	 * @param $password - string - Новый пароль аккаунта
-	 * @param $email - string - Новый email аккаунта
 	 * @param $group - int - Новая группа аккаунта
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
-	function setAccount($id, $newlogin = null,$password = null,$email = null,$group = null) {
+	function setAccount($id, $newlogin = null,$password = null,$group = null,$fields = array()) {
 		if ($newlogin != null && !is_string($newlogin)) throw new \InvalidArgumentException('$newlogin must be string');
 		if ($password != null && !is_string($password)) throw new \InvalidArgumentException('$password must be string');
-		if ($email != null && !is_string($email)) throw new \InvalidArgumentException('$email must be string');
 		if ($group != null && !is_int($group)) throw new \InvalidArgumentException('$group must be int');
+		if (!is_array($fields)) throw new \InvalidArgumentException('$fields must be array');
 		
 		$acc = $this->getAccount($id);
 		
+		// Если это администратор, то проверяем есть ли еще администраторы
 		if ($acc['group'] == 1 && $group != null) {
 			$cond = $this->db->setCondition('and');
 			$cond->add('ugroup','=',1);
-			$result = $this->db->select($this->tablenames['accounts'], array('c'=>"Count(*)"));
-			if ($result != false) {
-				$arr = $result->fetch_array(MYSQLI_ASSOC);
-				if ($arr != null) {
-					$result->close();
-					$this->db->clear();
-					if ($arr['c'] <= 1 && $group != 1) {
-						throw new NotEnoughAdminsException('Администратор с id '.$id.' единственный администратор. Изменение группы заблокировано.');
-					}
-				} else {
-					$result->close();
-					$this->db->clear();
-				}
-			} else {
-				$this->db->clear();
-				throw new AccountQueryFailedException($this->db->getError());
-			}
+			$this->db->setPage(1,2);
+			$result = $this->db->select($this->db->getTableAlias('accounts'), array('c'=>"Count(*)"));
 			$this->db->clear();
+			
+			if (count($result) > 0 && $result[0]['c'] <= 1 && $group != 1)
+				throw new NotEnoughAdminsException('Администратор с id '.$id.' единственный администратор. Изменение заблокировано.');
 		}
 		
+		// Проверяем существование группы группа
 		if ($group != null) {
-		    $cond = $this->db->setCondition('and');
-		    $cond->add('id','=',$group);
-		    $result = $this->db->select($this->tablenames['PermissionGroups']);
-		    if ($result != false) {
-			    $arr = $result->fetch_array(MYSQLI_ASSOC);
-			    if ($arr == null) {
-				    $result->close();
-				    $this->db->clear();
-				    throw new GroupNotFoundException('Группа с id '.$group.' не найдена');
-			    }
-			    $result->close();
-			    $this->db->clear();
-		    } else {
-			    $this->db->clear();
-			    throw new AccountQueryFailedException($this->db->getError());
-		    }
-		    $this->db->clear();
+			$cond = $this->db->setCondition('and');
+			$cond->add('id','=',$group);
+			$this->db->setPage(1,1);
+			$result = $this->db->select($this->db->getTableAlias('PermissionGroups'));
+			$this->db->clear();
+			if (count($result) < 1)
+				throw new GroupNotFoundException('Группа с id '.$group.' не найдена');
 		}
 		
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
-		$tables = array();
+		//$fields = array();
 		if ($newlogin != null)
-		    $tables['login'] = $newlogin;
+			$fields['login'] = $newlogin;
 		if ($password != null)
-		    $tables['password'] = index::cryptString($password);
+			$fields['password'] = index::cryptString($password);
 		if ($group != null)
-		    $tables['ugroup'] = $group;
-		if ($email != null)
-		    $tables['email'] = $email;
-		if (count($tables) > 0)
-		    $this->db->update($this->tablenames['accounts'],$tables);
+			$fields['ugroup'] = $group;
+		if (count($fields) > 0)
+			$this->db->update($this->db->getTableAlias('accounts'),$fields);
 		$this->db->clear();
+	}
+	/**
+	 * Список кастомных полей
+	 * @oaram $perPage Количество элементов
+	 */
+	function listCustomFields($perPage = 20) {
+		$this->db->setPage(1,$perPage);
+		$result = $this->db->select($this->db->getTableAlias('AccountFields'));
+		$this->db->clear();
+		foreach ($result as &$row) {
+			$row["id"] = (int)$row["id"];
+			$row["length"] = (int)$row["length"];
+		}
+		return $result;
+	}
+	/**
+	 * Добавить дополнительное поле
+	 */
+	function addCustomField($alias, $name, $type, $length = 0) {
+		if (!is_string($alias)) throw new \InvalidArgumentException('$alias must be string');
+		if (!is_string($name)) throw new \InvalidArgumentException('$name must be string');
+		if (!is_string($type)) throw new \InvalidArgumentException('$type must be string');
+		if (!is_int($length)) throw new \InvalidArgumentException('$length must be int');
+		if ($length < 0) throw new \InvalidArgumentException('$length must be >= 0');
+
+		switch (strtolower($type)) {
+		
+		case "tinyint":
+			$type = "tinyint";
+			if ($length > 3) $length = 3;
+			break;
+
+		case "int":
+			$type = "int";
+			if ($length > 10) $length = 10;
+			break;
+
+		case "bigint":
+			$type = "bigint";
+			if ($length > 19) $length = 19;
+			break;
+
+		case "varchar":
+			$type = "varchar";
+			if ($length > 255) $length = 255;
+			break;
+
+		case "decimal":
+			$type = "decimal";
+			if ($length > 65) $length = 65;
+			break;
+
+		case "float":
+			$type = "float";
+			break;
+
+		case "real":
+		case "double":
+			$type = "double";
+			break;
+
+		case "datetime":
+		case "time":
+		case "timestamp":
+		case "date":
+			$type = strtolower($type);
+			$length = 0;
+			break;
+
+		default:
+			$type = "text";
+			$length = 0;
+		}
+
+		if ($length > 0)
+			$length_str = "(".$length.")";
+		else
+			$length_str = "";
+		
+		$this->db->query("alter table ".$this->db->getTableAlias('accounts')." add ( field_".$alias." ".$type.$length_str." )");
+		$this->db->insert(
+			$this->db->getTableAlias('AccountFields'),
+			array(
+				"alias" => $alias,
+				"name" => $name,
+				"type" => $type,
+				"length" => $length
+			)
+		);
+	}
+	/**
+	 * Удалить дополнительное поле
+	 */
+	function delCustomField($id) {
+		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+		$cond = $this->db->setCondition();
+		$cond->add("id","=",$id);
+		$query = $this->db->select($this->db->getTableAlias('AccountFields'));
+		if (count($query) < 1) {
+			$this->db->clear();
+			throw new \Exception("Дополнительное поле с id '".$id."' не найдено.");
+		}
+		$this->db->delete($this->db->getTableAlias('AccountFields'));
+		$this->db->clear();
+		$this->db->query("alter table ".$this->db->getTableAlias('accounts')." drop column field_".$query[0]["alias"]);
 	}
 	/**
 	 * Список привилегий аккаунта
 	 * @param $userid - int - Идентификатор аккаунта
 	 * @return array [ int ] { array { id, name } ... }
 	 */
-	function listPermission($userid) {
+	function listPermission($userid,$page = 1, $perPage = 20) {
 		if (!is_int($userid)) throw new \InvalidArgumentException('$userid must be int');
+		if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
+		if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
+		$this->db->setPage($page,$perPage);
 		$cond = $this->db->setCondition('and');
 		$cond->add('parent','=',$userid);
 		$cond->add('type','=',1);
-		$result = $this->db->select($this->tablenames['Permissions']);
-		if ($result != false) {
-			$perms = array();
-			while ($arr = $result->fetch_array(MYSQLI_ASSOC)) {
-				$perms[] = $arr['perm'];
-				/*$perms[] = array(
-					'parent'=>(int)$arr['parent'],
-					'perm'=>$arr['perm'],
-					'type'=>(int)$arr['type']
-				);*/
-			}
-			$result->close();
-			$this->db->clear();
-			return $perms;
-			} else {
-				$this->db->clear();
-				throw new AccountQueryFailedException($this->db->getError());
-			}
+		$result = $this->db->select($this->db->getTableAlias('Permissions'));
+		$this->db->clear();
+		foreach ($result as &$perm) {
+			$perm['id'] = (int)$perm['id'];
+			unset($perm['type']);
+			unset($perm['parent']);
+		}
+		return $result;
 	}
 	/**
 	 * Проверить привилегию у игрока
@@ -375,40 +437,32 @@ class AccountUtils {
 		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
 		if (!is_int($userid)) throw new \InvalidArgumentException('$userid must be int');
 		$acc = $this->getAccount($userid);
+		
+		// Администраторам разрешено все
 		if (((int)$acc['group']) == 1) return true;
-		$cond = $this->db->setCondition('and');
-		$cond->add("parent",'=',$acc['group']);
+		
+		// Проверяем привилегию у пользователя
+		$cond = $this->db->setCondition("and");
+		
+		$types = $cond->addNode("or");
+		
+		$type_group = $types->addNode();
+		$type_group->add("type",'=',0);
+		$type_group->add("parent",'=',$acc['group']);
+		
+		$type_user = $types->addNode();
+		$type_user->add("type",'=',1);
+		$type_user->add("parent",'=',$acc['id']);
+		
 		$cond->add("perm",'=',$perm);
-		$cond->add("type",'=',0);
-		$result = $this->db->select($this->tablenames['Permissions']);
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr != null) return true;
-			$result->close();
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+
+		$this->db->setPage(1,1);
+		
+		$result = $this->db->select($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
-		$cond = $this->db->setCondition('and');
-		$cond->add("parent",'=',$acc['id']);
-		$cond->add("perm",'=',$perm);
-		$cond->add("type",'=',1);
-		$result = $this->db->select($this->tablenames['Permissions']);
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) {
-				$result->close();
-				$this->db->clear();
-				return false;
-			}
-			$result->close();
-			$this->db->clear();
-			return true;
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		
+		if (count($result) > 0) return true;
+		return false;
 	}
 	/**
 	 * Добавить привилегию игроку
@@ -419,35 +473,25 @@ class AccountUtils {
 		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
 		if (!$this->existsAccount($userid)) throw new AccountNotFoundException('Пользователь с id '.$userid.' не найден');
 		if ($this->isSetPermission($userid,$perm)) throw new PermissionExistsException('Привилегия '.$perm.' уже установлена у аккаунта с id '.$userid);
-		$result = $this->db->insert($this->tablenames['Permissions'],
+		$this->db->insert(
+			$this->db->getTableAlias('Permissions'),
 			array(
-				$userid,
-				1,
-				"'".$perm."'"
-			),
-			array(
-				'parent',
-				'type',
-				'perm'
+				"parent" => $userid,
+				"type"   => 1,
+				"perm"   => $perm
 			)
 		);
 		$this->db->clear();
-		if ($result != false) throw new AccountQueryFailedException($this->db->getError());
 	}
 	/**
 	 * Удолить привилегию у игрока
-	 * @param $userid - int - Идентификатор аккаунта
-	 * @param $perm - string - привилегия аккаунта
+	 * @param $id - int - Идентификатор привилегии
 	 */
-	function delPermission($userid, $perm) {
-		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
-		if (!is_int($userid)) throw new \InvalidArgumentException('$userid must be int');
+	function delPermission($id) {
+		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
 		$cond = $this->db->setCondition('and');
-		$cond->add('parent','=',$userid);
-		$cond->add('type','=',1);
-		$cond->add('perm','=',$perm);
-		$result = $this->db->delete($this->tablenames['Permissions']);
+		$cond->add('id','=',$id);
+		$result = $this->db->delete($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
-		if ($result != false) throw new AccountQueryFailedException($this->db->getError());
 	}
 }

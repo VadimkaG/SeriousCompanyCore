@@ -3,10 +3,19 @@ namespace modules\accounts;
 if (!class_exists('\modules\accounts\index')) die("Ошибка: Используйте \modules\accounts\index::getGroupUtils()");
 class GroupUtils {
 	private $db;
-	private $tablenames;
-	public function __construct(&$database,&$tablenames){
+	public function __construct(&$database){
 		$this->db = $database;
-		$this->tablenames = $tablenames;
+	}
+	/**
+	 * Количество всех групп
+	 */
+	public function countGroups() {
+		$result = $this->db->select($this->db->getTableAlias('PermissionGroups'),array('c'=>'Count(*)'));
+		$this->db->clear();
+		if (count($result) > 0)
+			return (int)$result[0]['c'];
+		else
+			return 0;
 	}
 	/**
 	 * Список групп
@@ -16,25 +25,16 @@ class GroupUtils {
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 */
-	public function listGroups($page = null,$perPage = null) {
-		if ($page != null && $perPage != null) {
-			if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
-			if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
-			$this->db->setPage($page,$perPage);
+	public function listGroups($page = 1,$perPage = 20) {
+		if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
+		if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
+		$this->db->setPage($page,$perPage);
+		$result = $this->db->select($this->db->getTableAlias('PermissionGroups'));
+		$this->db->clear();
+		foreach ($result as &$row) {
+			$row["id"] = (int)$row["id"];
 		}
-		$result = $this->db->select($this->tablenames['PermissionGroups']);
-		if ($result != false) {
-			$accs = array();
-			while ($arr = $result->fetch_array(MYSQLI_ASSOC)) {
-				$accs[] = array(
-					'id'=>(int)$arr['id'],
-					'name'=>$arr['name']
-				);
-			}
-			$result->close();
-			$this->db->clear();
-			return $accs;
-		} else throw new AccountQueryFailedException($this->db->getError());
+		return $result;
 	}
 	/**
 	 * Существует ли гроуппа
@@ -47,21 +47,16 @@ class GroupUtils {
 		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
-		$result = $this->db->select($this->tablenames['PermissionGroups']);
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) {
-				$result->close();
-				$this->db->clear();
-				return false;
-			}
-			$result->close();
-			$this->db->clear();
-			return true;
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		$this->db->setPage(1,1);
+		$result = $this->db->select(
+			$this->db->getTableAlias('PermissionGroups'),
+			array(
+				"cout" => "Count(*)"
+			)
+		);
+		$this->db->clear();
+		if (isset($result[0]["cout"]) && ((int)$result[0]["cout"]) > 0) return true;
+		return false;
 	}
 	/**
 	 * Получить Группу
@@ -75,22 +70,14 @@ class GroupUtils {
 		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
-		$result = $this->db->select($this->tablenames['PermissionGroups']);
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) throw new GroupNotFoundException('Группа с id '.$id.' не найдена.');
-			$acc = array(
-					'id'=>(int)$arr['id'],
-					'name'=>$arr['name']
-			);
-			unset($arr);
-			$result->close();
-			$this->db->clear();
-			return $acc;
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		$this->setPage(1,1);
+		$result = $this->db->select($this->db->getTableAlias('PermissionGroups'));
+		$this->db->clear();
+
+		if (!isset($result[0]["id"]))
+			throw new GroupNotFoundException('Группа с id '.$id.' не найдена.');
+		$result[0]["id"] = (int)$result[0]["id"];
+		return $result[0];
 	}
 	/**
 	 * Получить группу пользователя
@@ -104,24 +91,32 @@ class GroupUtils {
 		if (!is_int($userid)) throw new \InvalidArgumentException('$userid must be int');
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$userid);
-		$result = $this->db->select($this->tablenames['accounts'],array('ugroup'));
-		$usergroup = null;
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) {
-				$result->close();
-				$this->db->clear();
-				throw new AccountNotFoundException('Пользователь с данным именем не найден.');
-			}
-			$usergroup = (int)$arr['ugroup'];
-			$result->close();
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		$this->setPage(1,1);
+		$result = $this->db->select($this->db->getTableAlias('accounts'),array('ugroup'));
 		$this->db->clear();
-		unset($result);
-		return $this->getGroup($usergroup);
+
+		if (!isset($result[0]))
+			throw new AccountNotFoundException('Пользователь с данным именем не найден.');
+		return $this->getGroup((int)$result[0]["ugroup"]);
+	}
+	/**
+	 * Получить список групп, начинающихся на $name
+	 * @param $name - string
+	 * @return array()
+	 */
+	public function autocompleteGroupName($name, $count = 10) {
+		if (!is_string($name)) throw new \InvalidArgumentException('$name must be string');
+		if (!is_int($count)) throw new \InvalidArgumentException('$count must be int');
+		$cond = $this->db->setCondition('and');
+		$cond->add('name','like',$name."%");
+		$this->db->setPage(1,$count);
+		$result = $this->db->select($this->db->getTableAlias('PermissionGroups'));
+		$this->db->clear();
+
+		foreach ($result as &$row) {
+			$row["id"] = (int)$row["id"];
+		}
+		return $result;
 	}
 	/**
 	 * Добавить группу
@@ -131,16 +126,14 @@ class GroupUtils {
 	 */
 	public function addGroup($name) {
 		if (!is_string($name)) throw new \InvalidArgumentException('$name must be string');
-		$result = $this->db->insert($this->tablenames['PermissionGroups'],
+		$result = $this->db->insert(
+			$this->db->getTableAlias('PermissionGroups'),
 			array(
-				"'".$name."'",
-			),
-			array(
-				'name'
+				"name" => $name
 			)
 		);
 		$this->db->clear();
-		if ($result != false) throw new AccountQueryFailedException($this->db->getError());
+		return $result;
 	}
 	/**
 	 * Удалить группу
@@ -153,21 +146,24 @@ class GroupUtils {
 		if ($id == 1 || $id == 2) throw new \InvalidArgumentException('Группу '.$id.' нельзя удалять.');
 		$cond = $this->db->setCondition('and');
 		$cond->add('ugroup','=',$id);
-		$this->db->update($this->tablenames['accounts'],array(
-			'ugroup'=>2
-		));
+		$this->db->update(
+			$this->db->getTableAlias('accounts'),
+			array(
+				'ugroup' => 2
+			)
+		);
 		$this->db->clear();
-		$cond = $this->db->setCondition('and');
-		$cond->add('id','=',$id);
-		$result = $this->db->delete($this->tablenames['PermissionGroups']);
-		$this->db->clear();
+
 		$cond = $this->db->setCondition('and');
 		$cond->add('parent','=',$id);
 		$cond->add('type','=',0);
-		$result = $this->db->delete($this->tablenames['Permissions']);
+		$this->db->delete($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
-		if ($result != false)
-			throw new AccountQueryFailedException($this->db->getError());
+
+		$cond = $this->db->setCondition('and');
+		$cond->add('id','=',$id);
+		$this->db->delete($this->db->getTableAlias('PermissionGroups'));
+		$this->db->clear();
 	}
 	/**
 	 * Изменить данные группы
@@ -180,9 +176,12 @@ class GroupUtils {
 		if (!$this->existsGroup($id)) throw new AccountNotFoundException('Группа с id '.$id.' не найдена');
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
-		$this->db->update($this->tablenames['PermissionGroups'],array(
-			'name'=>$name
-		));
+		$this->db->update(
+			$this->db->getTableAlias('PermissionGroups'),
+			array(
+				'name' => $name
+			)
+		);
 		$this->db->clear();
 	}
 	/**
@@ -190,29 +189,22 @@ class GroupUtils {
 	 * @param $groupid - int - Идентификатор аккаунта
 	 * @return array [ int ] { array { id, name } ... }
 	 */
-	function listPermission($groupid) {
+	function listPermission($groupid,$page = 1, $perPage = 20) {
 		if (!is_int($groupid)) throw new \InvalidArgumentException('$groupid must be int');
+		if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
+		if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
+		$this->db->setPage($page,$perPage);
 		$cond = $this->db->setCondition('and');
 		$cond->add('parent','=',$groupid);
 		$cond->add('type','=',0);
-		$result = $this->db->select($this->tablenames['Permissions']);
-		if ($result != false) {
-			$perms = array();
-			while ($arr = $result->fetch_array(MYSQLI_ASSOC)) {
-				$perms[] = $arr['perm'];
-				/*$perms[] = array(
-					'parent'=>(int)$arr['parent'],
-					'perm'=>$arr['perm'],
-					'type'=>(int)$arr['type']
-				);*/
-			}
-			$result->close();
-			$this->db->clear();
-			return $perms;
-			} else {
-				$this->db->clear();
-				throw new AccountQueryFailedException($this->db->getError());
-			}
+		$result = $this->db->select($this->db->getTableAlias('Permissions'));
+		$this->db->clear();
+		foreach ($result as &$perm) {
+			$perm["id"] = (int)$perm["id"];
+			unset($perm["type"]);
+			unset($perm["parent"]);
+		}
+		return $result;
 	}
 	/**
 	 * Проверить привилегию у группы
@@ -226,21 +218,12 @@ class GroupUtils {
 		$cond->add("parent",'=',$groupid);
 		$cond->add("perm",'=',$perm);
 		$cond->add("type",'=',0);
-		$result = $this->db->select($this->tablenames['Permissions']);
-		if ($result != false) {
-			$arr = $result->fetch_array(MYSQLI_ASSOC);
-			if ($arr == null) {
-				$result->close();
-				$this->db->clear();
-				return false;
-			}require_once(__DIR__.'/grutils.class.php');
-			$result->close();
-			$this->db->clear();
-			return true;
-		} else {
-			$this->db->clear();
-			throw new AccountQueryFailedException($this->db->getError());
-		}
+		$this->db->setPage(1,1);
+		$result = $this->db->select($this->db->getTableAlias('Permissions'));
+		$this->db->clear();
+
+		if (count($result) > 0) return true;
+		return false;
 	}
 	/**
 	 * Добавить привилегию группе
@@ -250,36 +233,28 @@ class GroupUtils {
 	function addPermission($groupid,$perm) {
 		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
 		if (!$this->existsGroup($groupid)) throw new GroupNotFoundException('Группа с id '.$groupid.' не найдена');
+		if ($groupid == 1) throw new \InvalidArgumentException('Нельзя добавлять привилегии в системную группу, у которой полные ривилегии');
 		if ($this->isSetPermission($groupid,$perm)) throw new PermissionExistsException('Привилегия '.$perm.' уже установлена у группы с id '.$groupid);
-		$result = $this->db->insert($this->tablenames['Permissions'],
+		$result = $this->db->insert(
+			$this->db->getTableAlias('Permissions'),
 			array(
-				$groupid,
-				0,
-				"'".$perm."'"
-			),
-			array(
-				'parent',
-				'type',
-				'perm'
+				"parent" => (int)$groupid,
+				"type"   => 0,
+				"perm"   => $perm
 			)
 		);
 		$this->db->clear();
-		if ($result != false) throw new AccountQueryFailedException($this->db->getError());
+		return $result;
 	}
 	/**
 	 * Удалить привилегию у группы
-	 * @param $groupid - int - Идентификатор
-	 * @param $perm - string - привилегия
+	 * @param $id - int - Идентификатор привилегии
 	 */
-	function delPermission($groupid, $perm) {
-		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
-		if (!is_int($groupid)) throw new \InvalidArgumentException('$groupid must be int');
+	function delPermission($id) {
+		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
 		$cond = $this->db->setCondition('and');
-		$cond->add('parent','=',$groupid);
-		$cond->add('type','=',0);
-		$cond->add('perm','=',$perm);
-		$result = $this->db->delete($this->tablenames['Permissions']);
+		$cond->add('id','=',$id);
+		$this->db->delete($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
-		if ($result != false) throw new AccountQueryFailedException($this->db->getError());
 	}
 }

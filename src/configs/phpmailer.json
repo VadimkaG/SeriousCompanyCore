@@ -1,8 +1,0 @@
-{
-	"server":"smtp.yandex.ru",
-	"auth_username":"",
-	"auth_password":"",
-	"secure":"ssl",
-	"port":465,
-	"name":"%TITLE%"
-}
