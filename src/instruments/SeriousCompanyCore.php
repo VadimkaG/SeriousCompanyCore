@@ -2,7 +2,7 @@
 // Идентификатор ядра
 define("core","SeriousCompanyCore");
 // Версия ядра
-define("core_version","3.0");
+define("core_version","3.1");
 /**
  * Шаблон вывода ошибки
  * @param $text - Текст ошибки

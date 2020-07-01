@@ -333,11 +333,11 @@ class databaseWhereNode {
 	 * @param $item - Имя поля
 	 * @param $operator - Оператор
 	 * @param $value - Значение (тип определяется автоматически: string, integer, array)
-	 * @param $row - Установить в true, еесли необходимо $value передать в чистом виде
+	 * @param $raw - Установить в true, еесли необходимо $value передать в чистом виде
 	 */
-	public function add($item,$operator,$value,$row=false) {
+	public function add($item,$operator,$value,$raw=false) {
 		if ($operator == "!=") $operator = "<>";
-		if (!$row) $value = $this->getField($value);
+		if (!$raw) $value = databaseWhereNode::getField($value);
 		$this->items[] = array(
 			'operator'=>$operator,
 			'item'=>$item,
@@ -393,7 +393,7 @@ class databaseWhereNode {
 	 */
 	public static function getField($field) {
 		if (is_string($field))
-			$field = "'".$field."'";
+			$field = "'".str_replace("'","''",$field)."'";
 		else if (is_array($field)) {
 			$str = '(';
 			foreach ($field as $inner) {

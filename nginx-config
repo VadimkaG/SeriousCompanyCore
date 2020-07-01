@@ -9,21 +9,22 @@ server {
         charset utf-8;
         index index.php;
 
-        location ~ (/content|/templates/templates) {
-                try_files $uri /index.php;
+        location /content {
+                try_files $uri /index.php?$args;
+        }
+
+        location /templates {
+                try_files /templates$uri /index.php?$args;
         }
 
         location / {
-                if (!-e $request_filename){
-                        rewrite ^/([^.]*[^/])$ /$1/ redirect;
-                }
                 rewrite (.*)$ /index.php;
         }
 
         location = /index.php {
-                try_files $uri /index.php;
                 include /etc/nginx/fastcgi.conf;
                 fastcgi_pass unix:/run/php/php7.4-fpm.sock;
         }
+
 }
 
