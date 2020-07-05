@@ -139,7 +139,7 @@ class PageTemplates extends \modules\admin\AdminPage {
 				$pages = array();
 			foreach ($pages as $page) {
 				$line = $table->addLine();
-				$line->addCell((new \XMLnode("a",$page["alias"]))->setAttr("href",$page["alias"]) );
+				$line->addCell((new \XMLnode("a",$page["alias"]))->setAttr("href",LOCALE_PREFIX.$this->path."/".$page["alias"]."/") );
 				$line->addCell($page["executor"]);
 				switch ($page["type"]) {
 				default:

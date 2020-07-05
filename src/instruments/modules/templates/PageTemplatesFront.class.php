@@ -78,7 +78,7 @@ class PageTemplatesFront extends \modules\admin\AdminPage {
 					default:
 						$name = $page["alias"];
 				}
-				$line->addCell( (new \XMLnode("a",$name))->setAttr("href",$page["alias"]) );
+				$line->addCell( (new \XMLnode("a",$name))->setAttr("href",LOCALE_PREFIX.$this->path."/".$page["alias"]."/") );
 				$line->addCell($page["executor"]);
 				switch ($page["type"]) {
 				default:
