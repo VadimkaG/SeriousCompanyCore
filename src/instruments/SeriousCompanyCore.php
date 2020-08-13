@@ -2,7 +2,7 @@
 // Идентификатор ядра
 define("core","SeriousCompanyCore");
 // Версия ядра
-define("core_version","3.1");
+define("core_version","3.2");
 /**
  * Шаблон вывода ошибки
  * @param $text - Текст ошибки
@@ -84,6 +84,8 @@ function SeriousCompany_start() {
 	if (!$res) fatalError('Инструмент "path.class.php" не удалось загрузить.',$coreErrorMessage);
 	$res = load("pathexecutor.class");
 	if (!$res) fatalError('Инструмент "pathexecutor.class.php" не удалось загрузить.',$coreErrorMessage);
+	$res = load("Event.class");
+	if (!$res) fatalError('Инструмент "Event.class.php" не удалось загрузить.',$coreErrorMessage);
 	$res = load("Attributes.class");
 	if (!$res) fatalError('Инструмент "Attributes.class.php" не удалось загрузить.',$coreErrorMessage);
 	$res = load("XMLnode.class");
@@ -149,7 +151,9 @@ function SeriousCompany_start() {
 		define("LOCALE_PREFIX","");
 	else
 		define("LOCALE_PREFIX","/".$locale);
-	
+
+	\Event::call("preloadPage");
+
 	// Ищем страницу
 	try {
 		$path = Path::getPath($url);
