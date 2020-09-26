@@ -13,11 +13,7 @@ function printInstallPage() {
 		case "install":
 			if (isset($_POST['db_name']) && isset($_POST['db_login']) && isset($_POST['db_password']) && isset($_POST['db_server']))
 				if (!createConfig($_POST['db_server'],$_POST['db_name'],$_POST['db_login'],$_POST['db_password'])) TemplateError("Не удалось создать настройки");
-			try {
-				install();
-			} catch (\Exception $e) {
-				TemplateError($e->getMessage());
-			}
+			install();
 			TemplateDone();
 			break;
 		default: TemplateWelcome(); break;
@@ -183,6 +179,9 @@ function createConfig($server,$name,$login,$password) {
 	)));
 }
 function install() {
+	ini_set('display_errors', 1);
+	ini_set('display_startup_errors', 1);
+	error_reporting(E_ALL);
 	$res = load("database.class");
 	if (!$res) TemplateError('Не удалось загрузить инструмент database.class');
 	$configs = getConfig('system');
@@ -247,8 +246,13 @@ function install() {
 		// Если зависемости удовлетворяют, то устанавливаем.
 		if ($allowed) {
 			// Устновка модуля $module_name
-			$module = \modules\Module::load($module_name);
-			$module->install();
+			try {
+				$module = \modules\Module::load($module_name);
+				$module->install();
+			} catch (Exception $e) {
+				$db->row_query("drop table if exists " . $db->getTableAlias("paths"));
+				TemplateError("Ошибка установки модуля '".$module_name."'. Причина:<br>".$e->getMessage());
+			}
 			$modules[$module_name] = true;
 		// Иначе не устанавливаем и добавляем в список неудовлетворенных
 		} else {
@@ -267,7 +271,7 @@ function install() {
 	do {
 		if ($c > 1000) {
 			var_dump($modules,$not_allowed);
-			throw new \Exception("Слишком много переадресаций, чтото пошло не так");
+			TemplateError("Слишком много переадресаций, чтото пошло не так");
 			break;
 		}
 		$c++;
@@ -283,7 +287,7 @@ function install() {
 				$depend_exists = isset($modules[$depend]);
 				// Если модуль требует зависимость, но ее просто нету в списке
 				// То просто выдает ошибку. Такого быть не должно
-				if ($require && !$depend_exists) throw new \Exception("Модуль \"". $module. "\" зависит от \"". $depend. "\", но модуль \"". $depend ."\" не найден");
+				if ($require && !$depend_exists) TemplateError("Модуль \"". $module. "\" зависит от \"". $depend. "\", но модуль \"". $depend ."\" не найден");
 				// Если модуль важен, но не установлен
 				// Или
 				// Если модуль не важен, но он есть в списках модов и он не установлен
@@ -301,9 +305,14 @@ function install() {
 			// Устанавливаем модуль
 			if ($allow) {
 				// Устновка модуля $module
-				$module_obj = \modules\Module::load($module);
-				$module_obj->install();
-
+				try {
+					$module_obj = \modules\Module::load($module);
+					$module_obj->install();
+				} catch (Exception $e) {
+					$db->row_query("drop table if exists " . $db->getTableAlias("paths"));
+					TemplateError("Ошибка установки модуля '".$module."'. Причина:<br>".$e->getMessage());
+				}
+				
 				// Теперь удалим модуль из списка неудовлетворенных
 				unset($not_allowed[$module]);
 				$installed = true;

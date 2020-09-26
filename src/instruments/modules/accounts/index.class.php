@@ -5,6 +5,8 @@ require_once(__DIR__.'/Exceptions.php');
 class index extends \modules\Module {
 	const VERSION = '1.1';
 	public function install() {
+		if ((float)core_version < 3.2)
+			throw new \Exception("core version must be >= 3.2");
 
 		$db = \database::getInstance();
 
@@ -74,6 +76,8 @@ class index extends \modules\Module {
 		// Если есть модуль admin, тогда добавляем в него свои страницы
 		try {
 			$module_admin = \modules\Module::load("admin");
+			if ((float)\modules\admin\index::VERSION < 1.0)
+				throw new \Exception("module admin version must be >= 1.0");
 			$cond = $db->setCondition();
 			$cond->add("parent","=",$id);
 			$cond->add("alias","=","admin");

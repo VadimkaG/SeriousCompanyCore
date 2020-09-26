@@ -4,9 +4,11 @@ if (!defined('core') || core != "SeriousCompanyCore") die("Ошибка: Ядр�
 if (!class_exists('\modules\Module')) load('module');
 if (!class_exists('\modules\Module')) fatalError("Ошибка: Система модулей не инициализирована");
 class index extends \modules\Module {
-	const VERSION = '1.0';
+	const VERSION = '1.1';
 	public static $TEMPLATE;
 	public function install() {
+		if ((float)core_version < 3.3)
+			throw new \Exception("core version must be >= 3.3");
 
 		$db = \database::getInstance();
 		
@@ -57,7 +59,9 @@ class index extends \modules\Module {
 		// Если присутствует модуль accounts
 		try {
 			$module_accounts = \modules\Module::load("accounts");
-			
+
+			if ((float)\modules\accounts\index::VERSION < 1.1)
+				throw new \Exception("module accounts version must be >= 1.1");
 			// Добавляем страницу авторизации
 			$db->insert($alias_paths,array(
 				"parent"   => 0,

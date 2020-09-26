@@ -106,6 +106,38 @@ class Main extends AdminPage {
 		if (($message = $this->form_menus_del->validate()) != false) {
 			$layout->setWarning($message);
 		}
+
+		$this->form_module_install = new Form("module_install");
+		$this->form_module_install->addSubmit($this->locale["INSTALL"])->addClass("btn bc_blue");
+		$this->form_module_install_input = $this->form_module_install->addInput("id",null,"hidden");
+		$this->form_module_install->setEvent($this,"module_install_event");
+		if (($message = $this->form_module_install->validate()) != false) {
+			$layout->setWarning($message);
+		}
+
+		$this->form_module_delete = new Form("module_delete");
+		$this->form_module_delete->addSubmit($this->locale["DELETE"])->addClass("btn bc_blue");
+		$this->form_module_delete_input = $this->form_module_delete->addInput("id",null,"hidden");
+		$this->form_module_delete->setEvent($this,"module_uninstall_event");
+		if (($message = $this->form_module_delete->validate()) != false) {
+			$layout->setWarning($message);
+		}
+
+		// Установка модуля
+		/*if (isset($_GET['module_install'])) {
+			var_dump($_GET['module_install']);
+			$module = \modules\Module::load($_GET['module_install']);
+			if ($module) {
+				$module->install();
+				$layout->setWarning("Модуль ".$_GET['module_install']." установлен");
+			}
+		} elseif (isset($_GET['module_delete'])) {
+			$module = \modules\Module::load($_GET['module_delete']);
+			if ($module) {
+				$module->uninstall();
+				$layout->setWarning("Модуль ".$_GET['module_delete']." удален");
+			}
+		}*/
 	}
 	/**
 	 * Время для построения конткнта
@@ -139,6 +171,15 @@ class Main extends AdminPage {
 		$block_menu_add->setContent($this->form_menus_add->toTableString());
 		echo $block_menu_add;
 
+		$block_modules = new Block();
+		$block_modules->setTitle($this->locale["MODULES"]);
+		$block_modules->getAttr()->addClass("collapsed")->set("id","block_mudules");
+		$block_modules->addHeaderButton($this->locale["EXPAND"])->getAttr()
+			->addClass("event_btn_collapse")
+			->set("collapce-target","#block_mudules");
+		$block_modules->setContent($this->content_modules());
+		echo $block_modules;
+
 		$block_menu_edit = new Block();
 		$block_menu_edit->setTitle($this->locale["LINK_EDIT"]);
 		$block_menu_edit->getAttr()->addClass("hidden")->set("id","block_menu_edit");
@@ -159,6 +200,26 @@ class Main extends AdminPage {
 		$content->addChild(new XMLnode("p",$this->locale["MSG3"].": ". \modules\Module::load("admin")->getVersion()));
 		$content->addChild(new XMLnode("p",$this->locale["MSG4"].": ". core_version));
 		return $content;
+	}
+	/**
+	 * Блок списка модулей
+	 */
+	public function content_modules() {
+		$table = new Table();
+		$line = $table->addLine();
+		$line->addCell($this->locale["NAME"]);
+		$line->addCell("");
+		$line->addCell("");
+		$modules = array_slice(scandir(instruments."modules"),2);
+		foreach($modules as $module) {
+			$line = $table->addLine();
+			$line->addCell($module);
+			$this->form_module_install_input->setValue($module);
+			$line->addCell($this->form_module_install);
+			$this->form_module_delete_input->setValue($module);
+			$line->addCell($this->form_module_delete);
+		}
+		return $table;
 	}
 	/**
 	 * Блок меню
@@ -269,5 +330,35 @@ class Main extends AdminPage {
 		} catch (\Exception $e) {
 			return "Ошибка при редактировании ссылки: " . $e->getMessage();
 		}
+	}
+	/**
+	 * Установить модуль
+	 */
+	public function module_install_event(&$form,&$fields) {
+		$module = \modules\Module::load($fields["id"]);
+		if ($module) {
+			try {
+				$module->install();
+			} catch (Exception $e) {
+				return "Не удалось установить модуль '".$fields["id"]."'. Причина: ".$e->getMessage();
+			}
+			return "Модуль ".$fields["id"]." установлен.";
+		} else
+			return "Ошибка инициализации модуля.";
+	}
+	/**
+	 * Удалить модуль
+	 */
+	public function module_uninstall_event(&$form,&$fields) {
+		$module = \modules\Module::load($fields["id"]);
+		if ($module) {
+			try {
+				$module->uninstall();
+			} catch (Exception $e) {
+				return "Не удалось удалить модуль '".$fields["id"]."'. Причина: ".$e->getMessage();
+			}
+			return "Модуль ".$fields["id"]." удален.";
+		} else
+			return "Ошибка инициализации модуля.";
 	}
 }

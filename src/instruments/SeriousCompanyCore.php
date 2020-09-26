@@ -2,7 +2,7 @@
 // Идентификатор ядра
 define("core","SeriousCompanyCore");
 // Версия ядра
-define("core_version","3.2");
+define("core_version","3.3");
 /**
  * Шаблон вывода ошибки
  * @param $text - Текст ошибки
@@ -153,7 +153,7 @@ function SeriousCompany_start() {
 		define("LOCALE_PREFIX","/".$locale);
 
 	\Event::call("preloadPage");
-
+	
 	// Ищем страницу
 	try {
 		$path = Path::getPath($url);

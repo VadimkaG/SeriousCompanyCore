@@ -9,6 +9,8 @@ class index extends \modules\Module {
 	public static $CUSTOM_TEMPLATE_PATH;
 	public static $ROOT;
 	public function install() {
+		if ((float)core_version < 3.2)
+			throw new \Exception("core version must be >= 3.2");
 
 		if (!file_exists(root."/templates")) mkdir(root."/templates");
 		if (!file_exists(root."/templates/templates")) mkdir(root."/templates/templates");
@@ -63,6 +65,8 @@ class index extends \modules\Module {
 		// Если есть модуль admin, тогда добавляем в него свои страницы
 		try {
 			$module_admin = \modules\Module::load("admin");
+			if ((float)\modules\admin\index::VERSION < 1.0)
+				throw new \Exception("module admin version must be >= 1.0");
 			$cond = $db->setCondition();
 			$cond->add("parent","=",$id);
 			$cond->add("alias","=","admin");

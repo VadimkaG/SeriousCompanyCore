@@ -17,5 +17,7 @@
 	"MSG1":"This is a site control panel.",
 	"MSG2":"To start editing - select the desired menu item",
 	"MSG3":"Admin module version",
-	"MSG4":"Kernel version"
+	"MSG4":"Kernel version",
+	"MODULES":"Modules",
+	"INSTALL":"Install"
 }
