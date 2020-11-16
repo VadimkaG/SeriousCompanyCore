@@ -3,7 +3,7 @@ namespace modules\accounts;
 if (!class_exists('\modules\accounts\index')) die("Ошибка: Используйте \modules\accounts\index::getAccountUtils()");
 class AccountUtils {
 	private $db;
-	public function __construct(&$database){
+	public function __construct(\database &$database){
 		$this->db = $database;
 	}
 	/**
@@ -25,9 +25,7 @@ class AccountUtils {
 	 * @return array [ int ] = { array{ login, group, password, id } ... }
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
-	function listAccounts($page = 1,$perPage = 20) {
-		if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
-		if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
+	function listAccounts(int $page = 1, int $perPage = 20) {
 
 		$fields = array(
 				"id"          => "a.id",
@@ -70,8 +68,7 @@ class AccountUtils {
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 * @throw \modules\accounts\AccountNotFoundException Если пользователь по заданным параметрам не найден
 	 */
-	function getAccount($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+	function getAccount(int $id) {
 		$cond = $this->db->setCondition('and');
 		$cond->add('a.id','=',$id);
 		$this->db->setPage(1,1);
@@ -110,9 +107,8 @@ class AccountUtils {
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 * @throw \modules\accounts\AccountNotFoundException Если пользователь по заданным параметрам не найден
 	 */
-	function getAccountByLogin($login,$password = null) {
-		if (!is_string($login)) throw new \InvalidArgumentException('$login must be string');
-		if ($password!= null && !is_string($login)) throw new \InvalidArgumentException('$password must be string or null');
+	function getAccountByLogin(string $login, $password = null) {
+		if ($password != null && !is_string($login)) throw new \InvalidArgumentException('$password must be string or null');
 		$cond = $this->db->setCondition('and');
 		
 		$cond->add('a.login','=',$login);
@@ -153,8 +149,7 @@ class AccountUtils {
 	 * @return boolean
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
-	function existsAccount($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+	function existsAccount(int $id) {
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
 		$this->db->setPage(1,1);
@@ -175,8 +170,7 @@ class AccountUtils {
 	 * @return boolean
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
-	function existsAccountByLogin($login) {
-		if (!is_string($login)) throw new \InvalidArgumentException('$login must be string');
+	function existsAccountByLogin(string $login) {
 		$cond = $this->db->setCondition('and');
 		$cond->add('login','=',$login);
 		$this->db->setPage(1,1);
@@ -197,10 +191,7 @@ class AccountUtils {
 	 * @param $password - string - Пароль
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
-	function addAccount($login,$password,$group = 2,$fields = array()) {
-		if (!is_string($login)) throw new \InvalidArgumentException('$login must be string');
-		if (!is_string($password)) throw new \InvalidArgumentException('$password must be string');
-		if (!is_int($group)) throw new \InvalidArgumentException('$group must be int');
+	function addAccount(string $login,string $password,int $group = 2,$fields = array()) {
 		if ($group < 1) throw new \InvalidArgumentException('$group must be > 0');
 		if (!is_array($fields)) throw new \InvalidArgumentException('$fields must be array');
 		if ($this->existsAccountByLogin($login)) throw new AccountExistsException('Пользователь с данным именем уже существует.');
@@ -224,27 +215,39 @@ class AccountUtils {
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
 	function delAccount($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+		if (!is_int($id) && !is_array($id)) throw new \InvalidArgumentException('$id must be int or array( int )');
 		
-		$acc = $this->getAccount($id);
-		
-		if ($acc['group'] == 1) {
-			$cond = $this->db->setCondition('and');
+		if (is_int($id))
+			$id = array( $id );
+
+		$cond = $this->db->setCondition();
+		$cond->add('id','IN',$id);
+		$query = $this->db->select($this->db->getTableAlias('accounts'), array("ugroup"));
+		$this->db->clear();
+
+		$admins_count = 0;
+		foreach ($query as $item) {
+			if ((int)$item["ugroup"] == 1)
+				$admins_count ++;
+		}
+
+		if ($admins_count > 0) {
+			$cond = $this->db->setCondition();
 			$cond->add('ugroup','=',1);
-			$this->db->setPage(1,2);
-			$result = $this->db->select($this->db->getTableAlias('accounts'), array('c'=>"Count(*)"));
+			$this->db->setPage(1,$admins_count+1);
+			$query = $this->db->select($this->db->getTableAlias('accounts'), array('c'=>"Count(*)"));
 			$this->db->clear();
-			if (count($result) > 0 && $result[0]['c'] <= 1)
-				throw new NotEnoughAdminsException('Администратор с id '.$id.' единственный администратор. Удаление заблокировано.');
+			if (count($query) > 0 && $query[0]['c'] <= $admins_count)
+				throw new NotEnoughAdminsException('Если выполнить эту операцию, то не останется ни одного администратора.');
 		}
 		
 		$cond = $this->db->setCondition('and');
-		$cond->add('id','=',$id);
+		$cond->add('id','IN',$id);
 		$this->db->delete($this->db->getTableAlias('accounts'));
 		$this->db->clear();
 
 		$cond = $this->db->setCondition('and');
-		$cond->add('parent','=',$id);
+		$cond->add('parent','IN',$id);
 		$cond->add('type','=',1);
 		$this->db->delete($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
@@ -257,10 +260,7 @@ class AccountUtils {
 	 * @param $group - int - Новая группа аккаунта
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
-	function setAccount($id, $newlogin = null,$password = null,$group = null,$fields = array()) {
-		if ($newlogin != null && !is_string($newlogin)) throw new \InvalidArgumentException('$newlogin must be string');
-		if ($password != null && !is_string($password)) throw new \InvalidArgumentException('$password must be string');
-		if ($group != null && !is_int($group)) throw new \InvalidArgumentException('$group must be int');
+	function setAccount(int $id, string $newlogin = null,string $password = null,int $group = null,$fields = array()) {
 		if (!is_array($fields)) throw new \InvalidArgumentException('$fields must be array');
 		
 		$acc = $this->getAccount($id);
@@ -305,7 +305,7 @@ class AccountUtils {
 	 * Список кастомных полей
 	 * @oaram $perPage Количество элементов
 	 */
-	function listCustomFields($perPage = 20) {
+	function listCustomFields(int $perPage = 20) {
 		$this->db->setPage(1,$perPage);
 		$result = $this->db->select($this->db->getTableAlias('AccountFields'));
 		$this->db->clear();
@@ -318,11 +318,7 @@ class AccountUtils {
 	/**
 	 * Добавить дополнительное поле
 	 */
-	function addCustomField($alias, $name, $type, $length = 0) {
-		if (!is_string($alias)) throw new \InvalidArgumentException('$alias must be string');
-		if (!is_string($name)) throw new \InvalidArgumentException('$name must be string');
-		if (!is_string($type)) throw new \InvalidArgumentException('$type must be string');
-		if (!is_int($length)) throw new \InvalidArgumentException('$length must be int');
+	function addCustomField(string $alias, string $name, string $type, int $length = 0) {
 		if ($length < 0) throw new \InvalidArgumentException('$length must be >= 0');
 
 		switch (strtolower($type)) {
@@ -394,13 +390,17 @@ class AccountUtils {
 	 * Удалить дополнительное поле
 	 */
 	function delCustomField($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+		if (!is_int($id) && !is_array($id)) throw new \InvalidArgumentException('$id must be int or array( int )');
+
+		if (is_int($id))
+			$id = array( $id );
+
 		$cond = $this->db->setCondition();
-		$cond->add("id","=",$id);
+		$cond->add("id","IN",$id);
 		$query = $this->db->select($this->db->getTableAlias('AccountFields'));
 		if (count($query) < 1) {
 			$this->db->clear();
-			throw new \Exception("Дополнительное поле с id '".$id."' не найдено.");
+			throw new \Exception("Поля с таким id не найдены.");
 		}
 		$this->db->delete($this->db->getTableAlias('AccountFields'));
 		$this->db->clear();
@@ -411,10 +411,7 @@ class AccountUtils {
 	 * @param $userid - int - Идентификатор аккаунта
 	 * @return array [ int ] { array { id, name } ... }
 	 */
-	function listPermission($userid,$page = 1, $perPage = 20) {
-		if (!is_int($userid)) throw new \InvalidArgumentException('$userid must be int');
-		if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
-		if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
+	function listPermission(int $userid, int $page = 1, int $perPage = 20) {
 		$this->db->setPage($page,$perPage);
 		$cond = $this->db->setCondition('and');
 		$cond->add('parent','=',$userid);
@@ -433,9 +430,7 @@ class AccountUtils {
 	 * @param $userid - int - Идентификатор аккаунта
 	 * @param $perm - string - привилегия аккаунта
 	 */
-	function isSetPermission($userid,$perm) {
-		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
-		if (!is_int($userid)) throw new \InvalidArgumentException('$userid must be int');
+	function isSetPermission(int $userid, string $perm) {
 		$acc = $this->getAccount($userid);
 		
 		// Администраторам разрешено все
@@ -469,8 +464,7 @@ class AccountUtils {
 	 * @param $userid - int - Идентификатор аккаунта
 	 * @param $perm - string - привилегия аккаунта
 	 */
-	function addPermission($userid,$perm) {
-		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
+	function addPermission(int $userid, string $perm) {
 		if (!$this->existsAccount($userid)) throw new AccountNotFoundException('Пользователь с id '.$userid.' не найден');
 		if ($this->isSetPermission($userid,$perm)) throw new PermissionExistsException('Привилегия '.$perm.' уже установлена у аккаунта с id '.$userid);
 		$this->db->insert(
@@ -488,9 +482,11 @@ class AccountUtils {
 	 * @param $id - int - Идентификатор привилегии
 	 */
 	function delPermission($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+		if (!is_int($id) && !is_array($id)) throw new \InvalidArgumentException('$id must be int or array( int )');
+		if (is_int($id))
+			$id = array( $id );
 		$cond = $this->db->setCondition('and');
-		$cond->add('id','=',$id);
+		$cond->add('id','IN',$id);
 		$result = $this->db->delete($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
 	}

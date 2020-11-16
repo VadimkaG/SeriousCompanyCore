@@ -3,10 +3,10 @@ namespace modules\accounts;
 if (!defined('core') || core != "SeriousCompanyCore") die("Ошибка: Ядро не импортировано");
 require_once(__DIR__.'/Exceptions.php');
 class index extends \modules\Module {
-	const VERSION = '1.1';
+	const VERSION = '1.2';
 	public function install() {
-		if ((float)core_version < 3.2)
-			throw new \Exception("core version must be >= 3.2");
+		if ((float)core_version < 3.4)
+			throw new \Exception("core version must be >= 3.4");
 
 		$db = \database::getInstance();
 
@@ -108,6 +108,25 @@ class index extends \modules\Module {
 		$db->row_query("drop table if exists ".$db->getTableAlias('PermissionGroups'));
 		$db->row_query("drop table if exists ".$db->getTableAlias('Permissions'));
 		$db->row_query("drop table if exists ".$db->getTableAlias('AccountFields'));
+
+		$cond = $db->setCondition();
+		$cond->add("executor","IN",array(
+			"/". instruments ."modules.accounts.PageAccounts",
+			"/". instruments ."modules.accounts.PageGroups"
+		));
+		$query = $db->select($db->getTableAlias("paths"),array("id"));
+		$db->clear();
+
+		$ids = array();
+		$count = 0;
+		foreach ($query as $item) {
+			if (isset($item["id"])) {
+				$count++;
+				$ids[] = (int)$item["id"];
+			}
+		}
+
+		if ($count > 0) \Path::delPage($ids);
 	}
 	/**
 	 * Зависемости

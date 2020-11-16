@@ -20,7 +20,7 @@ class PageRobots extends \PathExecutor {
 					echo "Clean-param: ".$param." ".$link."\n";
 				}
 			if (isset($params["Sitemap"]))
-				echo "Sitemap: ".$_SERVER["HTTP_HOST"].(string)$params["Sitemap"];
+				echo "Sitemap: ".$_SERVER["REQUEST_SCHEME"]."://".$_SERVER["HTTP_HOST"].(string)$params["Sitemap"];
 		}
 	}
 	/**

@@ -4,11 +4,11 @@ if (!defined('core') || core != "SeriousCompanyCore") die("Ошибка: Ядр�
 if (!class_exists('\modules\Module')) load('module');
 if (!class_exists('\modules\Module')) fatalError("Ошибка: Система модулей не инициализирована");
 class index extends \modules\Module {
-	const VERSION = '1.1';
+	const VERSION = '1.21';
 	public static $TEMPLATE;
 	public function install() {
-		if ((float)core_version < 3.3)
-			throw new \Exception("core version must be >= 3.3");
+		if ((float)core_version < 3.4)
+			throw new \Exception("core version must be >= 3.4");
 
 		$db = \database::getInstance();
 		
@@ -76,6 +76,26 @@ class index extends \modules\Module {
 	public function uninstall() {
 		$db = \database::getInstance();
 		$db->row_query("drop table if exists " . $db->getTableAlias("admin_menu"));
+
+		$cond = $db->setCondition();
+		$cond->add("executor","IN",array(
+			"/".instruments."modules.admin.Main",
+			"/".instruments."modules.admin.Resources",
+			"/".instruments."modules.admin.Login"
+		));
+		$query = $db->select($db->getTableAlias("paths"),array("id"));
+		$db->clear();
+
+		$ids = array();
+		$count = 0;
+		foreach ($query as $item) {
+			if (isset($item["id"])) {
+				$count++;
+				$ids[] = (int)$item["id"];
+			}
+		}
+
+		if ($count > 0) \Path::delPage($ids);
 	}
 	public function loadAdminPage() {
 		require_once(__DIR__.'/AdminPage.class.php');

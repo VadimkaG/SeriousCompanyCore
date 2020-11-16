@@ -1,11 +1,11 @@
-function setEvents() {
-	$('.event_button_hide').click(function(){
+function setEvents(data) {
+	$(data).find('.event_button_hide').click(function(){
 		$($(this).data("element")).hide();
 	});
-	$('.event_button_show').click(function(){
+	$(data).find('.event_button_show').click(function(){
 		$($(this).data("element")).show();
 	});
-	$('.event_btn_collapse').click(function(){
+	$(data).find('.event_btn_collapse').click(function(){
 		block = $($(this).attr("collapce-target"));
 		if (block.hasClass('collapsed')) {
 			block.removeClass('collapsed');
@@ -13,7 +13,7 @@ function setEvents() {
 			block.addClass('collapsed');
 		}
 	});
-	$('.event_btn_hide').click(function(){
+	$(data).find('.event_btn_hide').click(function(){
 		block = $($(this).attr("hide-target"));
 		if (block.hasClass('hidden')) {
 			block.removeClass('hidden');
@@ -21,7 +21,7 @@ function setEvents() {
 			block.addClass('hidden');
 		}
 	});
-	$('.event__data_transfer').click(function(){
+	$(data).find('.event__data_transfer').click(function(){
 		alias = $(this).attr("alias");
 		datakey = $(this).attr("data-key");
 		$(".data_transfer__"+alias+"__"+datakey).each(function(index,element){
@@ -36,7 +36,7 @@ function setEvents() {
 				target.val($(element).html());
 		});
 	});
-	$('.event__content_ajax').click(function(){
+	$(data).find('.event__content_ajax').click(function(){
 		alias = $(this).attr("content_ajax__alias");
 		data = {
 			"event":$(this).attr("content_ajax__alias"),
@@ -46,9 +46,10 @@ function setEvents() {
 		if (href == undefined) href = "";
 		$.post(href,data,function(data){
 			$("#content_ajax__"+alias).html(data);
+			setEvents($("#content_ajax__"+alias));
 		});
 	});
-	$('.event__data_list').on("input",function(){
+	$(data).find('.event__data_list').on("input",function(){
 		data = {};
 		data[$(this).attr("list")] = $(this).val();
 		list = $('#'+$(this).attr("list"));
@@ -68,5 +69,5 @@ function setEvents() {
 	});
 }
 $(function(){
-	setEvents();
+	setEvents(document);
 });

@@ -12,6 +12,7 @@ class database {
 	private $OrderBy;
 	private $GroupBy;
 	private $tableAliases;
+	private $charset;
 	private static $instance = null;
 	
 	/**
@@ -22,21 +23,22 @@ class database {
 	 * @param $database - Имя базы данных
 	 * @param $databaseAliases - Алиасы таблиц базы данных
 	 */
-	public function __construct($host, $user, $password, $database = "", $databaseAliases = array()) {
+	public function __construct($host, $user, $password, $database = "", $databaseAliases = array(), $charset = null) {
 		$this->connect_data['host'] = $host;
 		$this->connect_data['user'] = $user;
 		$this->connect_data['password'] = $password;
 		$this->connect_data['database'] = $database;
 		$this->tableAliases = $databaseAliases;
+		$this->charset = $charset;
 		$this->clear();
 	}
 	/**
 	 * Получить объект базы данных
 	 */ 
-	public static function getInstance($host = null, $user = null, $password = null, $database = "", $databaseAliases = array()) {
+	public static function getInstance($host = null, $user = null, $password = null, $database = "", $databaseAliases = array(), $charset = null) {
 		if (self::$instance != null) return self::$instance;
 		else if ($host != null && $user != null && $password != null)
-			self::$instance = new database($host,$user,$password,$database,$databaseAliases);
+			self::$instance = new database($host,$user,$password,$database,$databaseAliases, $charset);
 		return self::$instance;
 	}
 	
@@ -57,6 +59,10 @@ class database {
 			$this->status = false;
 		}
 		else $this->status = true;
+		if (is_string($this->charset)) {
+			$this->row_query("SET CHARACTER SET '".$this->charset."'");
+			var_dump($this->charset);
+		}
 		return $this->status;
 	}
 	/**

@@ -4,13 +4,13 @@ if (!defined('core') || core != "SeriousCompanyCore") die("Ошибка: Ядр�
 if (!class_exists('\modules\Module')) load('module');
 if (!class_exists('\modules\Module')) die("Ошибка: Система модулей не инициализирована");
 class index extends \modules\Module {
-	const VERSION = '1.0';
+	const VERSION = '1.1';
 	public static $TEMPLATE;
 	public static $CUSTOM_TEMPLATE_PATH;
 	public static $ROOT;
 	public function install() {
-		if ((float)core_version < 3.2)
-			throw new \Exception("core version must be >= 3.2");
+		if ((float)core_version < 3.4)
+			throw new \Exception("core version must be >= 3.4");
 
 		if (!file_exists(root."/templates")) mkdir(root."/templates");
 		if (!file_exists(root."/templates/templates")) mkdir(root."/templates/templates");
@@ -91,6 +91,30 @@ class index extends \modules\Module {
 			}
 		} catch (\modules\ModuleLoadException $e) {}
 	}
+	public function uninstall() {
+		$db = \database::getInstance();
+
+		$cond = $db->setCondition();
+		$cond->add("executor","IN",array(
+			"/". instruments ."modules.templates.PageTemplatesFront",
+			"/". instruments ."modules.templates.PageTemplates",
+			"/". instruments ."modules.templates.PageResources",
+			"/". instruments ."modules.templates.PageResourcesFront"
+		));
+		$query = $db->select($db->getTableAlias("paths"),array("id"));
+		$db->clear();
+
+		$ids = array();
+		$count = 0;
+		foreach ($query as $item) {
+			if (isset($item["id"])) {
+				$count++;
+				$ids[] = (int)$item["id"];
+			}
+		}
+
+		if ($count > 0) \Path::delPage($ids);
+	}
 	/**
 	 * Зависемости
 	 * @return array( module_name => required )
@@ -131,7 +155,7 @@ class index extends \modules\Module {
 		index::$CUSTOM_TEMPLATE_PATH = $path;
 	}
 	/**
-	 * Поулчить путь к текущему шаблону
+	 * Полулчить путь к текущему шаблону
 	 */
 	public static function getTemplatePath() {
 		if (index::$CUSTOM_TEMPLATE_PATH != null) return index::$CUSTOM_TEMPLATE_PATH;

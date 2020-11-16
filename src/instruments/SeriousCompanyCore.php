@@ -2,7 +2,7 @@
 // Идентификатор ядра
 define("core","SeriousCompanyCore");
 // Версия ядра
-define("core_version","3.3");
+define("core_version","3.5");
 /**
  * Шаблон вывода ошибки
  * @param $text - Текст ошибки
@@ -109,7 +109,11 @@ function SeriousCompany_start() {
 	if (!isset($configs['database']['server']) || !isset($configs['database']['user']) || !isset($configs['database']['password']) || !isset($configs['database']['basename']))
 		fatalError('В конфигурации не найдены данные о базе данных.<br>Ожидаемые данные: "database:{server, basename, user, password}"',$coreErrorMessage);
 	
-	$db = database::getInstance($configs['database']['server'],$configs['database']['user'],$configs['database']['password'],$configs['database']['basename'],$configs['tablenames']);
+	if (isset($configs['database']['character']))
+		$db_character = $configs['database']['character'];
+	else
+		$db_character = null;
+	$db = database::getInstance($configs['database']['server'],$configs['database']['user'],$configs['database']['password'],$configs['database']['basename'],$configs['tablenames'],$db_character);
 	try {
 		$db->connect();
 	} catch(\databaseExceptuion $e) {

@@ -287,11 +287,33 @@ class Path {
 	 * @param $id - Идентификатор страницы
 	 */
 	public static function delPage($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+		if (!is_int($id) && !is_array($id)) throw new \InvalidArgumentException('$id must be int or array( int )');
 		$db = \database::getInstance();
+
+		if (is_int($id))
+			$id = array( (int)$id );
+
+		$parents = $id;
+		do {
+			$cond = $db->setCondition();
+			$cond->add("parent","IN",$parents);
+			$query = $db->select($db->getTableAlias('paths'),array("id"));
+			$parents = array();
+			$count = 0;
+			foreach ($query as $item) {
+				if (isset($item["id"]) && !isset($id[(int)$item["id"]])) {
+					$count ++;
+					$parents[] = (int)$item["id"];
+					$id[(int)$item["id"]] = (int)$item["id"];
+				}
+			}
+			$db->clear();
+		} while ($count > 0);
+
 		$cond = $db->setCondition();
-		$cond->add("id","=",$id);
+		$cond->add("id","IN",$id);
 		$result = $db->delete($db->getTableAlias('paths'));
+		$result = false;
 		$db->clear();
 		return $result;
 	}

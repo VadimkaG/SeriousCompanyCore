@@ -3,7 +3,7 @@ namespace modules\accounts;
 if (!class_exists('\modules\accounts\index')) die("Ошибка: Используйте \modules\accounts\index::getGroupUtils()");
 class GroupUtils {
 	private $db;
-	public function __construct(&$database){
+	public function __construct(\database &$database){
 		$this->db = $database;
 	}
 	/**
@@ -25,9 +25,7 @@ class GroupUtils {
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 */
-	public function listGroups($page = 1,$perPage = 20) {
-		if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
-		if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
+	public function listGroups(int $page = 1,int $perPage = 20) {
 		$this->db->setPage($page,$perPage);
 		$result = $this->db->select($this->db->getTableAlias('PermissionGroups'));
 		$this->db->clear();
@@ -43,8 +41,7 @@ class GroupUtils {
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе происхзошла ошибка
 	 */
-	public function existsGroup($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+	public function existsGroup(int $id) {
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
 		$this->db->setPage(1,1);
@@ -66,8 +63,7 @@ class GroupUtils {
 	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 * @throw \modules\accounts\GroupNotFoundException Если группа по заданным параметрам не найдена
 	 */
-	public function getGroup($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+	public function getGroup(int $id) {
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
 		$this->setPage(1,1);
@@ -87,8 +83,7 @@ class GroupUtils {
 	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 * @throw \modules\accounts\AccountNotFoundException Если пользователь по заданным параметрам не найдена
 	 */
-	public function getGroupByUserId($userid) {
-		if (!is_int($userid)) throw new \InvalidArgumentException('$userid must be int');
+	public function getGroupByUserId(int $userid) {
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$userid);
 		$this->setPage(1,1);
@@ -104,9 +99,7 @@ class GroupUtils {
 	 * @param $name - string
 	 * @return array()
 	 */
-	public function autocompleteGroupName($name, $count = 10) {
-		if (!is_string($name)) throw new \InvalidArgumentException('$name must be string');
-		if (!is_int($count)) throw new \InvalidArgumentException('$count must be int');
+	public function autocompleteGroupName(string $name, int $count = 10) {
 		$cond = $this->db->setCondition('and');
 		$cond->add('name','like',$name."%");
 		$this->db->setPage(1,$count);
@@ -124,8 +117,7 @@ class GroupUtils {
 	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
-	public function addGroup($name) {
-		if (!is_string($name)) throw new \InvalidArgumentException('$name must be string');
+	public function addGroup(string $name) {
 		$result = $this->db->insert(
 			$this->db->getTableAlias('PermissionGroups'),
 			array(
@@ -142,10 +134,16 @@ class GroupUtils {
 	 * @throw \modules\accounts\AccountQueryFailedException Если при SQL запросе произошла ошибка
 	 */
 	public function delGroup($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
-		if ($id == 1 || $id == 2) throw new \InvalidArgumentException('Группу '.$id.' нельзя удалять.');
+		if (!is_int($id) && is_array($id)) throw new \InvalidArgumentException('$id must be int');
+
+		if (is_int($id))
+			$id = array( $id );
+
+		foreach ($id as $item) {
+			if ($item == 1 || $item == 2) throw new \InvalidArgumentException('Группу '.$id.' нельзя удалять.');
+		}
 		$cond = $this->db->setCondition('and');
-		$cond->add('ugroup','=',$id);
+		$cond->add('ugroup','IN',$id);
 		$this->db->update(
 			$this->db->getTableAlias('accounts'),
 			array(
@@ -155,13 +153,13 @@ class GroupUtils {
 		$this->db->clear();
 
 		$cond = $this->db->setCondition('and');
-		$cond->add('parent','=',$id);
+		$cond->add('parent','IN',$id);
 		$cond->add('type','=',0);
 		$this->db->delete($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
 
 		$cond = $this->db->setCondition('and');
-		$cond->add('id','=',$id);
+		$cond->add('id','IN',$id);
 		$this->db->delete($this->db->getTableAlias('PermissionGroups'));
 		$this->db->clear();
 	}
@@ -171,8 +169,7 @@ class GroupUtils {
 	 * @param $name - string - Новое имя группы
 	 * @throw \InvalidArgumentException Если параметры не верного типа
 	 */
-	public function setGroup($id,$name) {
-		if (!is_string($name)) throw new \InvalidArgumentException('$name must be string');
+	public function setGroup(int $id, string $name) {
 		if (!$this->existsGroup($id)) throw new AccountNotFoundException('Группа с id '.$id.' не найдена');
 		$cond = $this->db->setCondition('and');
 		$cond->add('id','=',$id);
@@ -189,10 +186,7 @@ class GroupUtils {
 	 * @param $groupid - int - Идентификатор аккаунта
 	 * @return array [ int ] { array { id, name } ... }
 	 */
-	function listPermission($groupid,$page = 1, $perPage = 20) {
-		if (!is_int($groupid)) throw new \InvalidArgumentException('$groupid must be int');
-		if (!is_int($page)) throw new \InvalidArgumentException('$page must be int');
-		if (!is_int($perPage)) throw new \InvalidArgumentException('$perPage must be int');
+	function listPermission(int $groupid, int $page = 1, int $perPage = 20) {
 		$this->db->setPage($page,$perPage);
 		$cond = $this->db->setCondition('and');
 		$cond->add('parent','=',$groupid);
@@ -211,9 +205,7 @@ class GroupUtils {
 	 * @param $groupid - int - Идентификатор
 	 * @param $perm - string - привилегия
 	 */
-	function isSetPermission($groupid,$perm) {
-		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
-		if (!is_int($groupid)) throw new \InvalidArgumentException('$groupid must be int');
+	function isSetPermission(int $groupid, string $perm) {
 		$cond = $this->db->setCondition('and');
 		$cond->add("parent",'=',$groupid);
 		$cond->add("perm",'=',$perm);
@@ -230,8 +222,7 @@ class GroupUtils {
 	 * @param $groupid - int - Идентификатор
 	 * @param $perm - string - привилегия
 	 */
-	function addPermission($groupid,$perm) {
-		if (!is_string($perm)) throw new \InvalidArgumentException('$perm must be string');
+	function addPermission(int $groupid, string $perm) {
 		if (!$this->existsGroup($groupid)) throw new GroupNotFoundException('Группа с id '.$groupid.' не найдена');
 		if ($groupid == 1) throw new \InvalidArgumentException('Нельзя добавлять привилегии в системную группу, у которой полные ривилегии');
 		if ($this->isSetPermission($groupid,$perm)) throw new PermissionExistsException('Привилегия '.$perm.' уже установлена у группы с id '.$groupid);
@@ -251,9 +242,13 @@ class GroupUtils {
 	 * @param $id - int - Идентификатор привилегии
 	 */
 	function delPermission($id) {
-		if (!is_int($id)) throw new \InvalidArgumentException('$id must be int');
+		if (!is_int($id) && !is_array($id)) throw new \InvalidArgumentException('$id must be int');
+
+		if (is_int($id))
+			$id = array( $id );
+
 		$cond = $this->db->setCondition('and');
-		$cond->add('id','=',$id);
+		$cond->add('id','IN',$id);
 		$this->db->delete($this->db->getTableAlias('Permissions'));
 		$this->db->clear();
 	}
