@@ -35,13 +35,12 @@ class Main extends AdminPage {
 	 * @return boolean
 	 */
 	public function validate() {
-		$accounts = \modules\Module::load("accounts");
-		$id = $accounts->getAuthSession();
-		if ($id == NULL)
+		$event = \Event::call("isAuth");
+		if (!isset($event[0]) || !$event[0])
 			throw new \PathNotValidatedException("Вы не авторизованы",\Path::getPath("admin_login"));
-		$utils_acc = $accounts->getAccountUtils();
-		if (!$utils_acc->isSetPermission($id,"admin.panel"))
-			throw new \PathNotValidatedException("Вы не авторизованы",\Path::getPath("admin_login"));
+		$event = \Event::call("isSetPermission",[ "perm" => "admin.panel" ]);
+		if (!isset($event[0]) || !$event[0])
+			throw new \PathNotValidatedException("Недостаточно привилегий для доступа к странице",\Path::getPath("admin_login"));
 
 		if (file_exists(__dir__."/template/locales/".LOCALE.".json"))
 			$this->locale = json_decode(file_get_contents(__dir__."/template/locales/".LOCALE.".json"),true);

@@ -59,10 +59,8 @@ class database {
 			$this->status = false;
 		}
 		else $this->status = true;
-		if (is_string($this->charset)) {
+		if (is_string($this->charset))
 			$this->row_query("SET CHARACTER SET '".$this->charset."'");
-			var_dump($this->charset);
-		}
 		return $this->status;
 	}
 	/**

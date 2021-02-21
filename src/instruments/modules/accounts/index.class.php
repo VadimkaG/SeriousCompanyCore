@@ -60,6 +60,12 @@ class index extends \modules\Module {
 		
 		if (isset($query[0]["id"])) $id = $query[0]["id"];
 		else return true;
+
+		\Event::regListener("login",instruments."modules/accounts/index.class.php","\modules\accounts\index::loginEvent");
+		\Event::regListener("logout",instruments."modules/accounts/index.class.php","\modules\accounts\index::logout");
+		\Event::regListener("isSetPermission",instruments."modules/accounts/index.class.php","\modules\accounts\index::isSetPermission");
+		\Event::regListener("isAuth",instruments."modules/accounts/index.class.php","\modules\accounts\index::isAuth");
+		\Event::regListener("getUserCurrent",instruments."modules/accounts/index.class.php","\modules\accounts\index::getUserCurrent");
 		
 		// Если есть модуль templates, тогда добавляем страницу авторизации
 		// DEPRECATED - Устарело. Теперь эта страница по желанию
@@ -127,6 +133,12 @@ class index extends \modules\Module {
 		}
 
 		if ($count > 0) \Path::delPage($ids);
+
+		\Event::unregListener("login","\modules\accounts\index::loginEvent");
+		\Event::unregListener("logout","\modules\accounts\index::logout");
+		\Event::unregListener("isSetPermission","\modules\accounts\index::isSetPermission");
+		\Event::unregListener("isAuth","\modules\accounts\index::isAuth");
+		\Event::unregListener("getUserCurrent","\modules\accounts\index::getUserCurrent");
 	}
 	/**
 	 * Зависемости
@@ -191,5 +203,67 @@ class index extends \modules\Module {
 	 */
 	public function delAuthSession() {
 		unset($_SESSION['USER_ID']);
+	}
+	/**
+	 * Событие авторизации
+	 * @param array( login, password ) $params
+	 * @return boolean
+	 */
+	public static function loginEvent(array $params) {
+		$accounts = \modules\Module::load("accounts");
+		if (isset($params["login"]) && isset($params["password"])) {
+			$accUtils = $accounts->getAccountUtils();
+			if ($accUtils)
+				try {
+					$arr = $accUtils->getAccountByLogin($params["login"],$params["password"]);
+					$accounts->setAuthSession($arr["id"]);
+					return true;
+				} catch (\modules\accounts\AccountNotFoundException $e) {}
+		}
+		return false;
+	}
+	public static function logout() {
+		$accounts = \modules\Module::load("accounts");
+		$accounts->delAuthSession();
+	}
+	/**
+	 * Событие проверки привилегии
+	 * @reutrn boolean
+	 */
+	public static function isSetPermission(array $params) {
+		$accounts = \modules\Module::load("accounts");
+		$user_id = $accounts->getAuthSession();
+		if ($user_id) {
+			$accUtils = $accounts->getAccountUtils();
+			if (isset($params["permission"]))
+				return $accUtils->isSetPermission($user_id,$params["permission"]);
+			elseif (isset($params["perm"]))
+				return $accUtils->isSetPermission($user_id,$params["perm"]);
+		} else return false;
+	}
+	/**
+	 * Авторизован ли текущий пользователь
+	 * @return boolean
+	 */
+	public static function isAuth() {
+		$accounts = \modules\Module::load("accounts");
+		$id = $accounts->getAuthSession();
+		if ($id) return true;
+		else return false;
+	}
+	/**
+	 * Получить текущего пользователя
+	 * @param null|array
+	 */
+	public static function getUserCurrent() {
+		$accounts = \modules\Module::load("accounts");
+		$id = $accounts->getAuthSession();
+		if ($id != NULL) {
+			try {
+				$utils = $accounts->getAccountUtils();
+				return $utils->getAccount($id);
+			} catch (\Exception $e) {}
+		}
+		return null;
 	}
 }

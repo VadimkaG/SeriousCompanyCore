@@ -18,11 +18,12 @@ class PageTemplatesFront extends \modules\admin\AdminPage {
 	 * Проверка страницы
 	 */
 	public function validate() {
-		$accounts = \modules\Module::load("accounts");
-		$id = $accounts->getAuthSession();
-		if ($id == NULL) return false;
-		$utils_acc = $accounts->getAccountUtils();
-		if (!$utils_acc->isSetPermission($id,"admin.panel")) return false;
+		$event = \Event::call("isAuth");
+		if (count($event) > 0 && !$event[0])
+			return false;
+		$event = \Event::call("isSetPermission",[ "perm" => "admin.panel" ]);
+		if (count($event) > 0 && !$event[0])
+			return false;
 		return true;
 	}
 	/**

@@ -6,12 +6,14 @@ abstract class Event {
 	 * Вызвать событие
 	 * @param $eventInd - Идентификатор события
 	 * @param $params - Параметры события
+	 * @return array
 	 */
 	public static function call(string $eventInd, array $params = array()) {
 		if (Event::$listeners == null) {
 			Event::$listeners = getConfig("event_listeners");
 			if (Event::$listeners == null) return false;
 		}
+		$return = [];
 		if (isset(Event::$listeners[$eventInd]) && is_array(Event::$listeners[$eventInd]))
 			foreach(Event::$listeners[$eventInd] as $event=>$path) {
 				if (is_string($event) && is_string($path)) {
@@ -21,11 +23,12 @@ abstract class Event {
 						if (count($arr) == 2 && class_exists($arr[0]) && method_exists($arr[0], $arr[1])) {
 							$class = &$arr[0];
 							$method = &$arr[1];
-							$class::$method($params);
+							$return[] = $class::$method($params);
 						}
 					}
 				}
 			}
+		return $return;
 	}
 	/**
 	 * Зарегистрировать слушателя

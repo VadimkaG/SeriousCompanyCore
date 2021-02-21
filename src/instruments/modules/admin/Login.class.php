@@ -22,20 +22,18 @@ class Login extends \modules\admin\AdminPage {
 	public function prestruct(&$layout) {
 
 		$this->auth = false;
-		$accounts = \modules\Module::load("accounts");
-
-		if (isset($_GET["logout"])) {
-			$accounts->delAuthSession();
-			Redirect("/");
+		$event = \Event::call("isAuth");
+		if (isset($event[0]) && $event[0]) {
+			$event = \Event::call("getUserCurrent");
+			if (isset($event[0]) && is_array($event[0])) {
+				$this->acc = $event[0];
+				$this->auth = true;
+			}
 		}
 
-		$id = $accounts->getAuthSession();
-		if ($id != NULL) {
-			try {
-				$utils = $accounts->getAccountUtils();
-				$this->acc = $utils->getAccount($id);
-				$this->auth = true;
-			} catch (\Exception $e) {}
+		if ($this->auth && isset($_GET["logout"])) {
+			\Event::call("logout");
+			Redirect("/");
 		}
 
 		$this->form_auth = new Form("auth");
@@ -72,30 +70,29 @@ class Login extends \modules\admin\AdminPage {
 	 * Авторизация
 	 */
 	public function event_auth(&$form,&$fields) {
-		try {
-			$accounts = \modules\Module::load("accounts");
-		} catch (\Exception $e) {
-			return "Для авторизации необходим модуль accounts";
-		}
 
+		// Проверяем количество попыток входа
 		if (isset($_SESSION["wrong_password"]) && $_SESSION["wrong_password"] > 5)
 			return "Превышено количество попыток входа. Ждите окончания сессии.";
-		
+
+		// Проверяем существования параметров
 		if (!isset($_POST["login"]) || !isset($_POST["password"])) {
 			return "Логин или пароль не указан";
 		}
-		
-		$util = $accounts->getAccountUtils();
-		
-		try {
-			$user = $util->getAccountByLogin($_POST["login"],$_POST["password"]);
-			$accounts->setAuthSession($user["id"]);
+
+		// Проверяем данные авторизации
+		$event = \Event::call("login",[ "login" => $_POST["login"], "password" => $_POST["password"] ]);
+
+		// Если авторизация успешна
+		if (isset($event[0]) && $event[0]) {
 			unset($_SESSION["wrong_password"]);
 			Redirect();
-		} catch (\modules\accounts\AccountNotFoundException $e) {
+
+		// Если данные не прошли проверку
+		} else {
 			if (!isset($_SESSION["wrong_password"])) $_SESSION["wrong_password"] = 1;
 			else $_SESSION["wrong_password"]++;
-			return $e->getMessage();
+			return "Не верный логин или пароль";
 		}
 	}
 }

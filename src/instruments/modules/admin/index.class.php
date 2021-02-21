@@ -4,11 +4,11 @@ if (!defined('core') || core != "SeriousCompanyCore") die("Ошибка: Ядр�
 if (!class_exists('\modules\Module')) load('module');
 if (!class_exists('\modules\Module')) fatalError("Ошибка: Система модулей не инициализирована");
 class index extends \modules\Module {
-	const VERSION = '1.21';
+	const VERSION = '1.3';
 	public static $TEMPLATE;
 	public function install() {
-		if ((float)core_version < 3.4)
-			throw new \Exception("core version must be >= 3.4");
+		if ((float)core_version < 3.6)
+			throw new \Exception("core version must be >= 3.6");
 
 		$db = \database::getInstance();
 		

@@ -4,13 +4,13 @@ if (!defined('core') || core != "SeriousCompanyCore") die("Ошибка: Ядр�
 if (!class_exists('\modules\Module')) load('module');
 if (!class_exists('\modules\Module')) die("Ошибка: Система модулей не инициализирована");
 class index extends \modules\Module {
-	const VERSION = '1.1';
+	const VERSION = '1.2';
 	public static $TEMPLATE;
 	public static $CUSTOM_TEMPLATE_PATH;
 	public static $ROOT;
 	public function install() {
-		if ((float)core_version < 3.4)
-			throw new \Exception("core version must be >= 3.4");
+		if ((float)core_version < 3.6)
+			throw new \Exception("core version must be >= 3.6");
 
 		if (!file_exists(root."/templates")) mkdir(root."/templates");
 		if (!file_exists(root."/templates/templates")) mkdir(root."/templates/templates");
