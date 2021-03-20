@@ -397,7 +397,7 @@ class databaseWhereNode {
 	 */
 	public static function getField($field) {
 		if (is_string($field))
-			$field = "'".str_replace("'","''",$field)."'";
+			$field = "'".str_replace([ "'", "\\" ],[ "''", "\\\\" ],$field)."'";
 		else if (is_array($field)) {
 			$str = '(';
 			foreach ($field as $inner) {
