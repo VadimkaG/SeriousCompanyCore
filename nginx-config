@@ -2,18 +2,14 @@ server {
         listen 80;
         listen [::]:80;
 
-        root /var/www/core;
+        root /var/www/public_html;
 
-        server_name core.seriouscompany.ru;
+        server_name site.name;
 
         charset utf-8;
         index index.php;
 
         location /content {
-                try_files $uri /index.php?$args;
-        }
-
-        location /templates/templates {
                 try_files $uri /index.php?$args;
         }
 
