@@ -133,7 +133,7 @@ class XMLnode {
 	 * @return string
 	 */
 	public function __toString() {
-		if (!is_string($this->content) && count($this->child) < 1)
+		if (is_null($this->content) && count($this->child) < 1)
 			return "<" . $this->element . $this->attributes . " />";
 		$child_str = "";
 		foreach ($this->child as $item) {
