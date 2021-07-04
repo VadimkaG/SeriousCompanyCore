@@ -19,6 +19,9 @@ function printInstallPage() {
 		default: TemplateWelcome(); break;
 	}
 }
+/**
+ * Страница приветствия
+ */
 function TemplateWelcome() {
 ?><html>
 <head>
@@ -34,7 +37,7 @@ function TemplateWelcome() {
 	<div class="container">
 		<h1>Установщик SeriousCompany Core</h1>
 		<div>Вас приветствует установщик SeriousCompany Core.</div>
-		<div>Прежде чем структура в базе данных будет создана.</div>
+		<div>Прежде чем структура в базе данных будет создана</div>
 		<div>вам необходимо указать несколько опций.</div>
 		<div>Нажмите "Установить", чтобы продолжить.</div>
 		<br>
@@ -46,6 +49,9 @@ function TemplateWelcome() {
 </body>
 </html><?
 }
+/**
+ * Создание главного файла конфигурации
+ */
 function TemplateSystemConfigs() {
 ?><html>
 <head>
@@ -61,24 +67,24 @@ function TemplateSystemConfigs() {
 <body>
 	<div class="container">
 		<h1>Установщик SeriousCompany Core</h1>
-		<h2>Системная конфигурация</h2>
+		<h2>Данные для доступа к базе данных</h2>
 		<form method="POST">
 			<input type="hidden" name="step" value="install">
 			<div class="form__field_wrapper">
-				<label for="db_server">Сервер базы данных:</label>
-				<input id="db_server" name="db_server" value="localhost">
+				<label for="db_server">Сервер:</label>
+				<input id="db_server" name="db_server" value="localhost" placeholder="хост">
 			</div>
 			<div class="form__field_wrapper">
-				<label for="db_name">Имя базы данных:</label>
-				<input id="db_name" name="db_name">
+				<label for="db_name">Имя базы:</label>
+				<input id="db_name" name="db_name" placeholder="база данных">
 			</div>
 			<div class="form__field_wrapper">
-				<label for="db_login">Логин базы данных:</label>
-				<input id="db_login" name="db_login">
+				<label for="db_login">Логин:</label>
+				<input id="db_login" name="db_login" placeholder="Логин">
 			</div>
 			<div class="form__field_wrapper">
-				<label for="db_password">Пароль базы данных:</label>
-				<input id="db_password" name="db_password" type="password">
+				<label for="db_password">Пароль:</label>
+				<input id="db_password" name="db_password" type="password" placeholder="Пароль">
 			</div>
 			<button class="btn bg_blue">Далее</button>
 		</form>
@@ -146,72 +152,92 @@ function TemplateError($message) {
 </html><?
 die();
 }
-function createConfig($server,$name,$login,$password) {
-	if ($server == "") TemplateError("Сервер базы данных не может быть пустым");
+/**
+ * Создание файла конфигурации
+ * @param string $host - Хост базы данных
+ * @param string $name - Имя базы данных
+ * @param string $login - Логин, для полючения к базе данных
+ * @param string $password - Пароль для подключения к базе данных
+ * @return boolean
+ */
+function createConfig(string $host, string $name, string $login, string $password) {
+	if ($host == "") TemplateError("Хост базы данных не может быть пустым");
 	if ($name == "") TemplateError("Имя базы данных не может быть пустым");
 	if ($login == "") TemplateError("Логин базы данных не может быть пустым");
-	if (!file_exists(root."/".configs)) {
-		TemplateError("Директория конфигурации не существует.");
-	} else
-	if (file_exists(root."/".configs) && !is_writable(root."/".configs)) {
-		TemplateError("Директория конфигурации не доступна для записи.");
-	} else
-	if (file_exists(root."/".configs."system.json") && !is_writable(root."/".configs."system.json")) {
-		TemplateError("Файл \"".configs."system.json"."\"". "недоступен для записи, пожалуйста настройте файл в ручную.");
-	}
-	$db = new database($server,$login,$password,$name);
-	try {
-		$db->connect();
-		$db->disconnect();
-	} catch (\databaseExceptuion $e) {
-		TemplateError("Данные для базы данных не верны");
-	}
-	return file_put_contents(configs."system.json",json_encode(array(
+
+	// Создаем директорию конфигурации
+	if (!file_exists(root."/".configs) && !is_writable(root))
+		TemplateError("Директория конфигурации (".configs.") не существует и нет прав ее создать");
+	elseif (file_exists(root."/".configs) && !is_writable(root."/".configs))
+		TemplateError("Отсутствуют права на запись в директорию конфигурации (".configs.").");
+	elseif (!file_exists(root."/".configs))
+		mkdir(root."/".configs);
+
+	// Создаем файл конфигурации
+	if (!file_exists(root."/".configs."system.json") && !is_writable(root."/".configs))
+		TemplateError("Файл конфигураци (".configs."system.json".") не существует. Его не возможно создать, так как директория конфигурации не доступна для записи.");
+	elseif (file_exists(root."/".configs."system.json") && !is_writable(root."/".configs."system.json"))
+		TemplateError("Файл конфигураци (".configs."system.json".") не доступен для записи.");
+
+	// СОздаем директорию слушателей событий
+	if (!file_exists(root."/".configs."listeners") && !is_writable(root."/".configs))
+		TemplateError("Не удалось создать директорию для слушателей событий (".configs."listeners".").");
+	elseif (file_exists(root."/".configs."listeners") && !is_writable(root."/".configs."listeners"))
+		TemplateError("Нет прав на запись в директорию слушателей событий (".configs."listeners".").");
+	elseif (!file_exists(root."/".configs."listeners"))
+		mkdir(root."/".configs."listeners");
+
+	$db = new MySQLI($host,$login,$password,$name);
+	if ($db->connect_errno)
+		TemplateError('Ошибка подключения к базе данных MYSQLI: '.$db->connect_error);
+	$db->close();
+	$result = file_put_contents(root."/".configs."system.json",json_encode(array(
 		"database" => array(
-			"server"   => $server,
-			"basename" => $name,
+			"host"   => $host,
+			"basename"     => $name,
 			"user"     => $login,
 			"password" => $password
-		),
-		"tablenames"     => array(),
-		"locales"        => array(),
-		"locale_default" => "ru"
+		)
 	)));
+	chmod(root."/".configs."system.json", 256);
+	return $result;
 }
+/**
+ * Установка
+ */
 function install() {
 	ini_set('display_errors', 1);
 	ini_set('display_startup_errors', 1);
 	error_reporting(E_ALL);
-	$res = load("database.class");
-	if (!$res) TemplateError('Не удалось загрузить инструмент database.class');
+	$res = load("StoredObjectCondition.class");
+	if (!$res) fatalError('Инструмент "StoredObjectCondition.class.php" не удалось загрузить.',$coreErrorMessage);
+	$res = load("StoredObject.class");
+	if (!$res) fatalError('Инструмент "StoredObject.class.php" не удалось загрузить.',$coreErrorMessage);
 	$configs = getConfig('system');
 	if (!$configs) TemplateError('Файл конфигурации "system" не найден.');
-	if (!isset($configs['database']['server']) || !isset($configs['database']['user']) || !isset($configs['database']['password']) || !isset($configs['database']['basename']))
-		TemplateError('В конфигурации не найдены данные о базе данных.<br>Ожидаемые данные: "database:{server, basename, user, password}"');
-	
-	$db = database::getInstance($configs['database']['server'],$configs['database']['user'],$configs['database']['password'],$configs['database']['basename'],$configs['tablenames']);
-	
-	$alias = $db->getTableAlias("paths");
-	$db->row_query("drop table if exists " . $alias);
-	
-	$db->row_query("create table " . $alias . " ( "
-			. "id serial primary key,"
-			. "parent bigint default 0,"
-			. "alias varchar(50) not null,"
-			. "executor varchar(255) not null,"
-			. "type tinyint not null default 0,"
-			. "params text not null"
-		. ")"
-	);
-	
-	$db->row_query("create index search_page on ". $alias ."( parent, alias, type, id )");
+	if (!isset($configs['database']['host']) || !isset($configs['database']['user']) || !isset($configs['database']['password']) || !isset($configs['database']['basename']))
+		TemplateError('В конфигурации не найдены данные о базе данных.<br>Ожидаемые данные: "database:{host, basename, user, password}"');
 
-	$db->insert($alias,array(
-			"parent"   => 0,
-			"alias"    => "front",
-			"executor" => "/".instruments."PageEditor",
-			"params"   => ""
-		));
+	$GLOBALS["MYSQLI_CONNECTION"] = new MySQLI($configs['database']['host'],$configs['database']['user'],$configs['database']['password'],$configs['database']['basename']);
+	if ($GLOBALS["MYSQLI_CONNECTION"]->connect_errno)
+		TemplateError('Ошибка подключения к базе данных MYSQLI: '.$GLOBALS["MYSQLI_CONNECTION"]->connect_error);
+
+	$res = load("path.class");
+	if (!$res) TemplateError('Инструмент "path.class.php" не удалось загрузить.');
+
+	try {
+		Path::uninstall();
+		Path::install();
+	} catch (\Exception $e) {
+		TemplateError('Ошибка установки объекта Path: '.$e->getMessage());
+	}
+
+	(new Path([
+		"url"      => "",
+		"variable" => false,
+		"executor" => "/".instruments."PageEditor",
+		"params"   => ""
+	]))->save();
 	
 	load('module.class.php');
 
@@ -320,5 +346,5 @@ function install() {
 		}
 	} while(count($not_allowed) > 0);
 	
-	$db->disconnect();
+	$GLOBALS["MYSQLI_CONNECTION"]->close();
 }

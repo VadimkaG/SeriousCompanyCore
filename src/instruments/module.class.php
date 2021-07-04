@@ -7,8 +7,8 @@ abstract class Module {
 	private static $modules = array();
 	
 	public function __construct(){
-		if (class_exists("\database"))
-			$this->db = \database::getInstance();
+		if (isset($GLOBALS["MYSQLI_CONNECTION"]))
+			$this->db = &$GLOBALS["MYSQLI_CONNECTION"];
 		else
 			$this->db = null;
 	}
@@ -46,7 +46,6 @@ abstract class Module {
 	/**
 	 * Настроить базу данных
 	 * Переопределяемый метод
-	 * @param $database - \database
 	 */
 	public function install(){}
 	/**

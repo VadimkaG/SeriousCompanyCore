@@ -1,12 +1,14 @@
 <?php
 abstract class PathExecutor {
 	protected $db;
-	protected $params;
 	protected $path;
-	public function __construct($database,$params = "",$path = null) {
+	protected $pathAliases;
+	protected $params;
+	public function __construct(&$database,$path = null,$pathAliases = [],$params = []) {
 		$this->db = $database;
-		$this->params = $params;
 		$this->path = $path;
+		$this->pathAliases = $pathAliases;
+		$this->params = $params;
 	}
 	/**
 	 * Проверка страницы
@@ -15,12 +17,6 @@ abstract class PathExecutor {
 	 * @return boolean
 	 */
 	public function validate() { return true; }
-	/**
-	 * Получить заголовок страницы
-	 * Переопределяемый метод
-	 * @return string
-	 */
-	public function getTitle() { return ""; }
 	/**
 	 * Запустить обработку страницы
 	 * Переопределяемый метод
