@@ -2,12 +2,10 @@
 abstract class PathExecutor {
 	protected $db;
 	protected $path;
-	protected $pathAliases;
 	protected $params;
-	public function __construct(&$database,$path = null,$pathAliases = [],$params = []) {
+	public function __construct(&$database,$path = null,$params = []) {
 		$this->db = $database;
 		$this->path = $path;
-		$this->pathAliases = $pathAliases;
 		$this->params = $params;
 	}
 	/**

@@ -1,6 +1,9 @@
 <?php
 class Path extends \stored_object\StoredObject {
 
+	protected $url = "";
+	protected $urlArr = [];
+
 	public static function databaseStructure() {
 		return [
 			"name" => "paths",
@@ -16,35 +19,24 @@ class Path extends \stored_object\StoredObject {
 		];
 	}
 	/**
+	 * Получить URL, по которому была вызвана страница
+	 * @return string
+	 */
+	public function URL() {
+		return $this->url;
+	}
+	/**
+	 * Получить URL, по которому вызвана страница, в виде массива
+	 * @return array
+	 */
+	public function URLarr() {
+		return $this->urlArr;
+	}
+	/**
 	 * Загрузить исполнитель страницы
 	 * @return \PathExecutor
 	 */
-	public function loadExecutor(string $realURL = "") {
-
-		/**
-		 * Подставляем алиасы, вместо неизвестных
-		 */
-		$aliases = [];
-		if (strlen($realURL) > 0) {
-			$url = $this->get("url");
-			$offset = 0;
-			$minus = 0;
-			while ($offset !== false) {
-				$offset = strripos($url,'$',$offset);
-				if ($offset === false) break;
-				$offset_end = strrpos($realURL,'\/',$offset-$minus);
-				if ($offset_end !== false)
-					$alias = substr($realURL,$offset-$minus,$offset_end);
-				else
-					$alias = substr($realURL,$offset-$minus);
-				$aliases[] = $alias;
-				$minus += strlen($alias);
-				$offset++;
-			}
-			unset($minus);
-			unset($offset);
-			unset($url);
-		}
+	public function loadExecutor() {
 
 		$executor_path = root.str_replace(".","/",$this->get("executor")).".class.php";
 		if (file_exists($executor_path)) {
@@ -70,7 +62,7 @@ class Path extends \stored_object\StoredObject {
 			}
 			unset($params_row);
 
-			return new $executor_name($GLOBALS["MYSQLI_CONNECTION"],$this,$aliases,$params);
+			return new $executor_name($GLOBALS["MYSQLI_CONNECTION"],$this,$params);
 
 		} else
 			throw new \Exception("Исполнитель по пути '".$executor_path."' не найден");
@@ -79,21 +71,24 @@ class Path extends \stored_object\StoredObject {
 	 * Загрузить исполнитель страницы по URI
 	 * @param string $url - URL по которому производится поиск
 	 * @param array $ignore = [] - Список URl, которые будут проигнорированы
+	 * @param string $realUrl = "" - Оригинальная ссылка, без всяких изменений
 	 */
-	public static function findExecutorFromURL(string $url, array $ignore = []) {
+	public static function findExecutorFromURL(string $url, array $ignore = [], string $realUrl = "") {
+
+		if (strlen($realUrl) < 1) $realUrl = $url;
 
 		// Если в конце мешающий слэш - стираем его
 		if (substr($url,-1) == "/")
 			$url = substr($url,0,-1);
 
-		$paths = Path::loadFromURL($url,$ignore);
+		$paths = Path::loadFromURL($url,$ignore,$realUrl);
 		if (count($paths) < 1)
 			$paths = Path::loadFromURL("not_found");
 
 		if (count($paths) < 1) return null;
 
 		foreach ($paths as $path) {
-			$executor = $path->loadExecutor($url);
+			$executor = $path->loadExecutor();
 
 			// Вызываем проверку у исполнителя
 			try {
@@ -113,7 +108,7 @@ class Path extends \stored_object\StoredObject {
 
 							// Ищем вложенные исполнители
 							$ignore[] = $path->get("url");
-							$executor = Path::findExecutorFromURL(implode("/",$URIarr),$ignore);
+							$executor = Path::findExecutorFromURL(implode("/",$URIarr),$ignore,$realUrl);
 							return $executor;
 
 						// Если текущая страница является концом
@@ -126,7 +121,7 @@ class Path extends \stored_object\StoredObject {
 				}
 			} catch (\PathNotValidatedException $exception) {
 				if ($exception->getPage() !== null) {
-					$executor = $exception->getPage()->loadExecutor($url);
+					$executor = $exception->getPage()->loadExecutor();
 					if ($executor !== null) return $executor;
 				}
 			}
@@ -143,13 +138,16 @@ class Path extends \stored_object\StoredObject {
 	 * Загрузить путь по URI
 	 * @param string $url - URL по которому производится поиск
 	 * @param array $ignore = [] - Список URl, которые будут проигнорированы
+	 * @param string $realUrl = "" - Оригинальная ссылка, без всяких изменений
 	 * @return array( \Path )
 	 */
-	public static function loadFromURL(string $url,array $ignore = []) {
+	public static function loadFromURL(string $url,array $ignore = [], string $realUrl = "") {
 		if (substr($url, -1) == "/")
 			$url = substr($url, 0,-1);
 
 		$URIarr = explode("/",$url);
+
+		if (strlen($realUrl) < 1) $realUrl = $url;
 
 		$suggestions = [ $url ];
 		$current = "";
@@ -171,6 +169,11 @@ class Path extends \stored_object\StoredObject {
 		if (count($ignore) > 0)
 			$cond->add("url",$ignore,"NOT IN");
 		$paths = Path::loadByCondition($cond);
+
+		foreach ($paths as &$path) {
+			$path->url = $realUrl;
+			$path->urlArr = $URIarr;
+		}
 
 		return $paths;
 	}
