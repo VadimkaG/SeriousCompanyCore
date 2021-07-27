@@ -4,20 +4,25 @@ abstract class StoredObject {
 	/**
 	 * Идентификатор в базе данных
 	 */
-	protected $ID = null;
+	protected $ID;
 	/**
 	 * Список полей
 	 */
-	protected $fields = [];
+	protected $fields;
 	/**
 	 * Создать новый объект
-	 * array $fields = [] - Поля
+	 * array $fields - Поля
+	 * int $id - Идентификатор в базе данных
 	 * @return \Object
 	 */
-	public function __construct(array $fields = []) {
+	public function __construct(array $fields = [], int $id = null) {
 		$structure = static::databaseStructure();
 		if (!is_array($structure["fields"]) || count($structure["fields"]) < 0)
 			throw new \Exception("Count fields in struct < 0");
+
+		$this->fields = [];
+		$this->ID = $id;
+
 		foreach ($structure["fields"] as $field => $params) {
 			$this->fields[$field] = null;
 		}
@@ -145,7 +150,7 @@ abstract class StoredObject {
 	 * Отклонировать текущий объект
 	 */
 	public function clone() {
-		return new static($this->fields);
+		return new static($this->fields, $this->ID);
 	}
 	/**
 	 * Удалить под условием
@@ -441,8 +446,7 @@ abstract class StoredObject {
 					$row[$alias] = static::convertRawToTypedField($row[$alias],$params);
 				}
 			}
-			$obj = new static($row);
-			$obj->ID = (int)$row["id"];
+			$obj = new static($row,(int)$row["id"]);
 			$list[$obj->ID] = $obj;
 		}
 		$result->close();
