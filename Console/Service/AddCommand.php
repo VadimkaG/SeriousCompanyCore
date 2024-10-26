@@ -2,7 +2,7 @@
 namespace SCC\Console\Service;
 use \SCC\Console\ConsoleCommandFactory;
 /**
- * Добавляет новую команду
+ * Добавляет новый сервис
  */
 class AddCommand implements \SCC\Console\ConsoleCommand {
 	/**

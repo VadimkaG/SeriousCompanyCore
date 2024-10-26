@@ -19,7 +19,6 @@ class EventFactory {
 	 * Загрузить событие
 	 */
 	protected function load():void {
-		if ($this->event !== null) return;
 		$state = \SCC\state($this->alias,"events");
 		if ($state->exists()) {
 			$content = $state->asArray();
@@ -73,8 +72,7 @@ class EventFactory {
 					}
 				}
 			}
-			if (count($this->listeners) > 0) $this->hasListeners = true;
-			else $this->hasListeners = false;
+			$this->hasListeners = !empty($this->listeners);
 			$this->loaded = true;
 		}
 	}

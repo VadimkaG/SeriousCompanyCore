@@ -2,7 +2,7 @@
 namespace SCC\Console;
 use \SCC\Console\ConsoleCommandFactory;
 /**
- * Добавляет новую команду
+ * Команда для ручного редактирования state конфигураций
  */
 class StateCommand implements \SCC\Console\ConsoleCommand {
 	/**

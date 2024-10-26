@@ -1,5 +1,11 @@
 <?php
 namespace SCC;
+
+/**
+ * Создать/редактировать роут.
+ * TODO: Добавить возможность добавления бесконечных форков
+ * TODO: Добавить возможность удаления роутов
+ */
 class RouteConfigurator {
 	protected string $route_uri;
 
@@ -23,8 +29,8 @@ class RouteConfigurator {
 	}
 	/**
 	 * Создать роут
-	 * @param $controller - Файл на который будет ссылаться путь
-	 * @param $aliases - Динамеческие параметры
+	 * @param $controller - Файл на который будет ссылаться путь.
+	 * @param $aliases - Динамеческие параметры в указанно uri.
 	 */
 	function create(string $controller, array $aliases = []) {
 		$uri = explode("/",$this->route_uri);

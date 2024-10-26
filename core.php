@@ -130,6 +130,10 @@ if (!defined("CORE")) {
 	function state(string $name, $parent = ""): \SCC\State {
 		return new State($name,$parent);
 	}
+	/**
+	 * Указывает менеджеру модулей как правильно установить сервис.
+	 * Должно содержать список псевданимов, на который регистрируется сервис
+	 */
 	#[Attribute]
 	class ServiceInfo {}
 	/**
@@ -190,10 +194,10 @@ if (!defined("CORE")) {
 	 * @param $alias - Псевданим события. Если не указать - очистить весь кэш
 	 */
 	function eventClearFromCACHE(?string $alias): void {
-		if ($name === null) {
+		if ($alias === null) {
 			$GLOBALS["eventCACHE"] = [];
 		} else
-			unset($GLOBALS["eventCACHE"][$name]);
+			unset($GLOBALS["eventCACHE"][$alias]);
 	}
 	/**
 	 * Получить конфигурацию модуля
@@ -206,6 +210,16 @@ if (!defined("CORE")) {
 			$GLOBALS["moduleCACHE"][$module_name] = new \SCC\Module($module_name);
 		}
 		return $GLOBALS["moduleCACHE"][$module_name];
+	}
+	/**
+	 * Очистить модуль из кэша
+	 * @param $module_name - Псевданим модуля. Если не указать - очистить весь кэш
+	 */
+	function moduleClearFromCACHE(?string $module_name): void {
+		if ($module_name === null) {
+			$GLOBALS["moduleCACHE"] = [];
+		} else
+			unset($GLOBALS["moduleCACHE"][$module_name]);
 	}
 	/**
 	 * Получить хранилище модулей
