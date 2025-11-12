@@ -57,7 +57,7 @@ class EventFactory {
 						$path = \SCC\url_inner($larr["path"]);
 					}
 					$path = &$pathArr["path"];
-					if (strlen($path) > 0) {
+					if ($path != null && strlen($path) > 0) {
 							require_once(ROOT."/".$path);
 						if (isset($larr["class"])) {
 							$class = $larr["class"];

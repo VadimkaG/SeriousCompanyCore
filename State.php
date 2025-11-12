@@ -28,7 +28,7 @@ class State {
 	 * @return string
 	 */
 	public function getDirPath(): string {
-		return ROOT."/".CONFIGS."/".$this->getFileName();
+		return ROOT."/".STATES."/".$this->getFileName();
 	}
 	/**
 	 * Получить путь к файлу

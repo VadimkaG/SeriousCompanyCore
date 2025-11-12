@@ -51,7 +51,7 @@ class ModuleManager extends Module {
 
 		$parentDirLen = strlen($parentDir)+2;
 
-		$files = scandir($path);
+		$files = scandir(ROOT."/".$path);
 		$services = [];
 		foreach ($files as $file) {
 
@@ -61,6 +61,7 @@ class ModuleManager extends Module {
 			$pathFile = $path."/".$file;
 			$pathFileAbs = ROOT."/".$path."/".$file;
 			$baseName = basename($pathFile);
+
 
 			if (is_dir($pathFileAbs)) {
 				$services = array_merge($services,$this->findClasses($pathFile,$parentDir));
@@ -80,7 +81,7 @@ class ModuleManager extends Module {
 			$classUri = str_replace("_","-",$this->getName()).":".substr($classUri,1).".php";
 			if (class_exists($className)) {
 
-				if ($parentClass !== null && !is_a($className, $parentClass))
+				if ($parentClass !== null && !is_a($className, $parentClass,true))
 					continue;
 
 				$services[] = [
@@ -101,7 +102,7 @@ class ModuleManager extends Module {
 
 		// Устанавливаем сервисы
 		$pathServices = $this->getPath()."/Services";
-		if (file_exists($pathServices) && is_dir($pathServices)) {
+		if (file_exists(ROOT."/".$pathServices) && is_dir(ROOT."/".$pathServices)) {
 			$services = $this->findClasses($pathServices,"Services");
 
 			foreach ($services as $service) {
@@ -124,7 +125,7 @@ class ModuleManager extends Module {
 
 		// Устанавливаем события
 		$pathServices = $this->getPath()."/Events";
-		if (file_exists($pathServices) && is_dir($pathServices)) {
+		if (file_exists(ROOT."/".$pathServices) && is_dir(ROOT."/".$pathServices)) {
 			$services = $this->findClasses($pathServices,"Events","\\SCC\\Event");
 
 			foreach ($services as $service) {
@@ -145,9 +146,8 @@ class ModuleManager extends Module {
 
 		// Устанавливаем слушатели событий
 		$pathServices = $this->getPath()."/EventListeners";
-		if (file_exists($pathServices) && is_dir($pathServices)) {
+		if (file_exists(ROOT."/".$pathServices) && is_dir(ROOT."/".$pathServices)) {
 			$services = $this->findClasses($pathServices,"EventListeners","\\SCC\\EventListener");
-
 			foreach ($services as $service) {
 				$reflection = new \ReflectionClass($service["class"]);
 				$attribute = $reflection->getAttributes(\SCC\EventListenerInfo::class);
@@ -170,13 +170,13 @@ class ModuleManager extends Module {
 
 		// Устанавливаем автозагрузочный файл
 		$pathServices = $this->getPath()."/autoload.php";
-		if (file_exists($pathServices)) {
+		if (file_exists(ROOT."/".$pathServices)) {
 			$state = \SCC\state("autoload");
 			$path = $this->getName().":/autoload.php";
 			$config = $state->asArray();
 			$finded = false;
 			foreach ($config as $item) {
-				if ($item["path"] === $path) {
+				if ($item === $path) {
 					$finded = true;
 					break;
 				}

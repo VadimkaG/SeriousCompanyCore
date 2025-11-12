@@ -61,9 +61,9 @@ class ModuleStorage {
 		$list = [];
 		$files = scandir($path);
 		foreach ($files as $file) {
-			if (strlen($file) <= 5 || mb_substr($file,-5) !== ".data") continue;
+			if (strlen($file) <= 6 || mb_substr($file,-6) !== ".state") continue;
 
-			$moduleName = mb_substr($file,0,-5);
+			$moduleName = mb_substr($file,0,-6);
 			$module = \SCC\module($moduleName);
 
 			if ($module->isInstalled())

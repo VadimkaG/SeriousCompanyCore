@@ -14,7 +14,7 @@ if (!defined("CORE")) {
 	/**
 	 * Версия ядра
 	 */
-	define("CORE_VERSION","5.0.0");
+	define("CORE_VERSION","5.0.2");
 	/**
 	 * Путь корневой директории сайта
 	 */ 
@@ -35,10 +35,15 @@ if (!defined("CORE")) {
 	 */
 	if (!defined("CONFIGS")) define("CONFIGS","configs");
 	/**
+	 * Путь к директории состояний
+	 * Относительно ROOT
+	 */
+	if (!defined("STATES")) define("STATES","states");
+	/**
 	 * Путь к директории публичного контента
 	 * Относительно ROOT
 	 */
-	if (!defined("PUBLIC_DIR")) define("PUBLIC_DIR","public");
+	if (!defined("PUBLIC_DIR")) define("PUBLIC_DIR","public_html");
 	/**
 	 * Кэш сервисов
 	 */
@@ -51,28 +56,33 @@ if (!defined("CORE")) {
 	 * @return полный путь относителньо ROOT
 	 */
 	function url_inner(string $url): string {
-		$comp = parse_url($url);
-		if (!is_array($comp) && !isset($comp["path"]) || strlen($comp["path"]) < 2) return "";
+		$scheme = null;
+		if (!str_starts_with($url,"/")) {
+			$pos = strpos($url,":");
+			if ($pos !== false) {
+				$scheme = substr($url,0,$pos);
+				$url = substr($url,$pos+1);
+				if (!str_starts_with($url,"/"))
+					$url = "/".$url;
+			}
+		}
+		if (strlen($url) < 2) return "";
 
-		if (substr($comp["path"], 0,1) !== "/")
-			$comp["path"] = "/".$comp["path"];
+		if ($scheme == null)
+			return $url;
 
-		if (!isset($comp["scheme"]))
-			return $comp["path"];
+		$scheme = str_replace("-","_",$scheme);
 
-		if (is_string($comp["scheme"]))
-			$comp["scheme"] = str_replace("-","_",$comp["scheme"]);
-
-		switch ($comp["scheme"]) {
+		switch ($scheme) {
 			case "core":
-				return ROOT_CORE.$comp["path"];
+				return ROOT_CORE.$url;
 			case "cache":
-				return (defined("CACHE")?CACHE:"cache").$comp["path"];
+				return (defined("CACHE")?CACHE:"cache").$url;
 			case "public":
-				return PUBLIC_DIR.$comp["path"];
+				return PUBLIC_DIR.$url;
 			default:
-				$module = \SCC\module($comp["scheme"]);
-				return $module->getPath().$comp["path"];
+				$module = \SCC\module($scheme);
+				return $module->getPath().$url;
 		}
 	}
 	/**
